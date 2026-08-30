@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Уроки · Навігація</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#D0E9FC;
+    --bg-soft:#E4F2FC;
+    --card:#FFFFFF;
+    --ink:#13213B;
+    --ink-soft:#6478A0;
+    --line: rgba(19,33,59,0.08);
+
+    --c1-a:#6C8CFF; --c1-b:#3355EE; --c1-sh: rgba(51,85,238,0.45);
+    --c3-a:#5FE0A8; --c3-b:#17A863; --c3-sh: rgba(23,168,99,0.4);
+    --c2-b:#E5484D;
+
+    --correct-bg:#E6F8EE;
+    --correct-ink:#128A54;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding:28px 16px 64px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding-bottom:16px;
+    margin-bottom:22px;
+    border-bottom:1.5px solid rgba(19,33,59,0.14);
+  }
+  .kicker{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:12.5px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink);
+    opacity:.55;
+  }
+  .kicker.tag{opacity:.4;}
+
+  h1{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:clamp(26px,6vw,38px);
+    line-height:1.05;
+    letter-spacing:-0.01em;
+    margin:0 0 8px;
+    text-transform:uppercase;
+  }
+  h1 .hl{color:var(--c1-b);}
+  .sub{color:var(--ink-soft);font-size:15px;max-width:60ch;margin:0 0 30px;font-weight:500;}
+
+  .block{
+    margin-bottom:46px;
+  }
+  .block-title{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:24px;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+    padding-bottom:12px;
+    border-bottom:2px solid rgba(19,33,59,0.14);
+  }
+
+  .subgroup{ margin-bottom:26px; margin-top:24px; }
+  .subgroup:first-of-type{ margin-top:22px; }
+  .subgroup-title{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:14px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--c1-b);
+    margin:0 0 14px 2px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:5px 14px 5px 12px;
+    border-radius:999px;
+    background: rgba(51,85,238,0.10);
+  }
+  .subgroup-title::before{
+    content:'';
+    width:6px;height:6px;
+    border-radius:50%;
+    background:var(--c1-b);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));
+    gap:14px;
+  }
+
+  .card{
+    background:var(--card);
+    border-radius:22px;
+    padding:22px 22px 20px;
+    box-shadow: 0 14px 30px -24px rgba(19,33,59,0.35);
+    text-decoration:none;
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    position:relative;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .card.ready:hover{
+    transform:translateY(-3px);
+    box-shadow: 0 18px 34px -18px rgba(19,33,59,0.4);
+  }
+  .card.soon{
+    opacity:.5;
+    cursor:default;
+    pointer-events:none;
+  }
+
+  .card-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:8px;
+  }
+
+  .tile{
+    width:40px;height:40px;min-width:40px;
+    border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:15px;
+    color:var(--c1-b);
+    background: linear-gradient(150deg, rgba(255,255,255,0.75), rgba(108,140,255,0.22));
+    backdrop-filter: blur(6px) saturate(160%);
+    -webkit-backdrop-filter: blur(6px) saturate(160%);
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 4px 12px -7px var(--c1-sh), inset 0 1px 1px rgba(255,255,255,0.8);
+  }
+
+  .status{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:10.5px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:5px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .status.ready{background:var(--correct-bg);color:var(--correct-ink);}
+  .status.soon{background:var(--bg-soft);color:var(--ink-soft);}
+
+  .card-title{
+    font-family:'Manrope',sans-serif;
+    font-weight:700;
+    font-size:16.5px;
+    line-height:1.32;
+    margin:0;
+  }
+  .card-sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    font-weight:500;
+    margin:0;
+  }
+
+  footer{
+    text-align:center;
+    margin-top:36px;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-weight:500;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="kicker">Навігація</div>
+    <div class="kicker tag">для вчителя</div>
+  </div>
+
+  <h1>Усі <span class="hl">уроки</span></h1>
+  <p class="sub">Ця сторінка — лише для вас. Відкрийте потрібну тему, щоб пояснювати матеріал і малювати прямо на екрані.</p>
+
+  <div id="blocks"></div>
+
+  <footer>@movoznavka</footer>
+</div>
+
+<script>
+/* ============================================================
+   ЯК ДОДАТИ НОВИЙ УРОК ЧИ ТЕМУ
+   Весь список живе в масиві BLOCKS нижче — структура повторює
+   портал тренажерів: block (розділ, напр. "Морфологія") →
+   subgroups (підрозділи, напр. "Іменник"; title: null — якщо
+   підрозділ без назви) → items (самі картки).
+
+   Щоб додати картку — скопіюй один блок { ... } всередині items
+   і зміни icon / status / title / desc / href.
+   status: "ready" — картка активна, клікабельна, зелений бейдж "Готово"
+           "soon"  — картка неактивна, сірий бейдж "Скоро"
+   href повинен бути ПОВНИМ посиланням (https://...), бо портал —
+   окремий сайт і не знає, де саме лежить сам урок.
+
+   Щоб додати новий підрозділ — скопіюй { title: "...", items: [...] }
+   і встав у subgroups потрібного block.
+   Щоб додати новий розділ — скопіюй { name: "...", subgroups: [...] }
+   і встав його в масив BLOCKS.
+   ============================================================ */
+
+const BLOCKS = [
+  {
+    name: "Фонетика",
+    subgroups: [
+      { title: null, items: [
+        {icon: "Ф", status: "ready", title: "Фонетика", desc: "Інтерактивний конспект із картками", href: "https://movoznavka.github.io/fonetyka-quiz/urok-fonetyka.html"}
+      ]}
+    ]
+  },
+  {
+    name: "Орфографія",
+    subgroups: [
+      { title: null, items: [
+        {icon: "С", status: "soon", title: "Спрощення в групах приголосних", href: "urok-sproshchennya.html"},
+        {icon: "Ч", status: "soon", title: "Чергування суфіксів при додаванні -ськ-", href: "urok-cherguvannya-sk.html"},
+        {icon: "Ч", status: "soon", title: "Чергування у-в та і-й", href: "urok-cherguvannya-u-v.html"},
+        {icon: "М", status: "soon", title: "М'який знак", href: "urok-myakyj-znak.html"},
+        {icon: "А", status: "soon", title: "Апостроф", href: "urok-apostrof.html"},
+        {icon: "П", status: "soon", title: "Подвоєння букв", href: "urok-podvoiennya.html"},
+        {icon: "П", status: "soon", title: "Правопис префіксів", href: "urok-prefiksy.html"},
+        {icon: "В", status: "soon", title: "Велика буква й лапки у власних назвах", href: "urok-velyka-bukva.html"},
+        {icon: "Н", status: "soon", title: "Правопис НЕ з різними частинами мови", href: "urok-ne-z-chastynamy-movy.html"}
+      ]},
+      { title: "Написання іншомовних слів", items: [
+        {icon: "И", status: "soon", title: "Букви и, і", href: "urok-inshomovni-y-i.html"},
+        {icon: "П", status: "soon", title: "Подвоєні букви", href: "urok-inshomovni-podvoiennya.html"},
+        {icon: "М", status: "soon", title: "М'який знак", href: "urok-inshomovni-myakyj-znak.html"},
+        {icon: "А", status: "soon", title: "Апостроф", href: "urok-inshomovni-apostrof.html"}
+      ]},
+      { title: "Складні слова", items: [
+        {icon: "С", status: "soon", title: "Складні іменники", href: "urok-skladni-imennyky.html"},
+        {icon: "С", status: "soon", title: "Складні прикметники", href: "urok-skladni-prykmetnyky.html"},
+        {icon: "С", status: "soon", title: "Складний прислівник", href: "urok-skladni-prysliv.html"},
+        {icon: "З", status: "soon", title: "Загальний тест", href: "urok-skladni-zagalnyi.html"}
+      ]}
+    ]
+  },
+  {
+    name: "Лексикологія",
+    subgroups: [
+      { title: null, items: [
+        {icon: "Л", status: "soon", title: "Лексичні помилки", href: "urok-leksychni-pomylky.html"},
+        {icon: "Ф", status: "soon", title: "Фразеологія", href: "urok-frazeologiya.html"}
+      ]}
+    ]
+  },
+  {
+    name: "Морфологія",
+    subgroups: [
+      { title: "Іменник", items: [
+        {icon: "І", status: "soon", title: "Рід", href: "urok-imennyk-rid.html"},
+        {icon: "І", status: "soon", title: "Число", href: "urok-imennyk-chyslo.html"},
+        {icon: "І", status: "soon", title: "Групи", href: "urok-imennyk-hrupy.html"},
+        {icon: "І", status: "soon", title: "Відміни", href: "urok-imennyk-vidminy.html"},
+        {icon: "І", status: "soon", title: "Родовий відмінок", href: "urok-imennyk-rodovyi.html"},
+        {icon: "І", status: "soon", title: "Кличний відмінок", href: "urok-klychnyj-vidminok.html"},
+        {icon: "І", status: "soon", title: "Імена по батькові", href: "urok-imennyk-po-batkovi.html"}
+      ]},
+      { title: "Прикметник", items: [
+        {icon: "П", status: "soon", title: "Ступені порівняння", href: "urok-prykmetnyk-stupeni.html"},
+        {icon: "П", status: "soon", title: "Правопис прикметникових суфіксів", href: "urok-prykmetnyk-sufiksy.html"}
+      ]},
+      { title: "Числівник", items: [
+        {icon: "Ч", status: "soon", title: "Відмінювання числівників", href: "urok-chyslivnyk-vidminy.html"},
+        {icon: "Ч", status: "soon", title: "Узгодження числівника з іменником", href: "urok-chyslivnyk-uzgodzhennya.html"},
+        {icon: "Ч", status: "soon", title: "Позначення часу", href: "urok-chyslivnyk-chas.html"}
+      ]},
+      { title: "Займенник", items: [
+        {icon: "З", status: "soon", title: "Займенник", href: "urok-zaimennyk.html"}
+      ]},
+      { title: "Дієслово", items: [
+        {icon: "Д", status: "soon", title: "Форми дієслова", href: "urok-diyeslovo-formy.html"},
+        {icon: "Д", status: "soon", title: "Дієвідміни", href: "urok-diyeslovo-diyevidminy.html"},
+        {icon: "Д", status: "soon", title: "Способи", href: "urok-diyeslovo-sposoby.html"},
+        {icon: "Д", status: "soon", title: "Дієприкметник", href: "urok-diyeprykmetnyk.html"},
+        {icon: "Д", status: "soon", title: "Дієприслівник", href: "urok-diyeprysliv.html"}
+      ]},
+      { title: "Прислівник", items: [
+        {icon: "П", status: "soon", title: "Прислівник", href: "urok-prysliv.html"}
+      ]},
+      { title: "Службові частини мови", items: [
+        {icon: "П", status: "soon", title: "Прийменник", href: "urok-pryimennyk.html"},
+        {icon: "С", status: "soon", title: "Сполучник", href: "urok-spoluchnyk.html"},
+        {icon: "Ч", status: "soon", title: "Частка", href: "urok-chastka.html"}
+      ]},
+      { title: "Вигук", items: [
+        {icon: "В", status: "soon", title: "Вигук", href: "urok-vyhuk.html"}
+      ]}
+    ]
+  },
+  {
+    name: "Синтаксис і пунктуація",
+    subgroups: [
+      { title: null, items: [
+        {icon: "С", status: "soon", title: "Словосполучення", href: "urok-slovospoluchennya.html"},
+        {icon: "В", status: "soon", title: "Види речення", href: "urok-vydy-rechennya.html"}
+      ]},
+      { title: "Члени речення", items: [
+        {icon: "Ч", status: "soon", title: "Головні члени", href: "urok-chleny-holovni.html"},
+        {icon: "Ч", status: "soon", title: "Другорядні члени", href: "urok-chleny-druhoryadni.html"},
+        {icon: "З", status: "soon", title: "Загальний тест", href: "urok-chleny-zagalnyi.html"}
+      ]},
+      { title: null, items: [
+        {icon: "Т", status: "soon", title: "Тире між підметом і присудком", href: "urok-tyre-pidmet-prysudok.html"},
+        {icon: "Т", status: "soon", title: "Типи односкладних речень", href: "urok-odnoskladni.html"}
+      ]},
+      { title: "Однорідні члени речення", items: [
+        {icon: "О", status: "soon", title: "Однорідні члени", href: "urok-odnoridni.html"},
+        {icon: "О", status: "soon", title: "Однорідні й неоднорідні означення", href: "urok-odnoridni-neodnoridni.html"}
+      ]},
+      { title: null, items: [
+        {icon: "В", status: "soon", title: "Вставні слова, словосполучення та речення", href: "urok-vstavni.html"},
+        {icon: "З", status: "soon", title: "Звертання", href: "urok-zvertannya.html"}
+      ]},
+      { title: "Відокремлені другорядні члени речення", items: [
+        {icon: "В", status: "soon", title: "Означення", href: "urok-vidokremleni-oznachennya.html"},
+        {icon: "В", status: "soon", title: "Прикладка", href: "urok-vidokremleni-prykladka.html"},
+        {icon: "В", status: "soon", title: "Обставина", href: "urok-vidokremleni-obstavyna.html"},
+        {icon: "В", status: "soon", title: "Додаток", href: "urok-vidokremleni-dodatok.html"}
+      ]},
+      { title: "Складне речення", items: [
+        {icon: "С", status: "soon", title: "Сурядні", href: "urok-skladne-suryadni.html"},
+        {icon: "С", status: "soon", title: "Підрядні", href: "urok-skladne-pidryadni.html"},
+        {icon: "С", status: "soon", title: "Безсполучникові", href: "urok-skladne-bezspoluchnykovi.html"},
+        {icon: "С", status: "soon", title: "З різними видами зв'язку", href: "urok-skladne-rizni-zvyazky.html"},
+        {icon: "З", status: "soon", title: "Загальний тест", href: "urok-skladne-zagalnyi.html"}
+      ]},
+      { title: null, items: [
+        {icon: "П", status: "soon", title: "Пряма мова", href: "urok-pryama-mova.html"}
+      ]}
+    ]
+  },
+  {
+    name: "Тексти",
+    subgroups: [
+      { title: null, items: [
+        {icon: "Т", status: "soon", title: "Тексти", href: "urok-teksty.html"}
+      ]}
+    ]
+  }
+];
+
+const blocksEl = document.getElementById('blocks');
+
+blocksEl.innerHTML = BLOCKS.map(block => `
+  <div class="block">
+    <h2 class="block-title">${block.name}</h2>
+    ${block.subgroups.map(sg => `
+      <div class="subgroup">
+        ${sg.title ? `<div class="subgroup-title">${sg.title}</div>` : ''}
+        <div class="grid">
+          ${sg.items.map(it => `
+            <a class="card ${it.status}" href="${it.status==='soon'?'#':it.href}">
+              <div class="card-top">
+                <span class="tile">${it.icon}</span>
+                <span class="status ${it.status}">${it.status==='soon'?'Скоро':'Готово'}</span>
+              </div>
+              <p class="card-title">${it.title}</p>
+              ${it.desc?`<p class="card-sub">${it.desc}</p>`:''}
+            </a>`).join('')}
+        </div>
+      </div>
+    `).join('')}
+  </div>
+`).join('');
+</script>
+</body>
+</html>
