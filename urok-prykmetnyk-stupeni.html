@@ -198,9 +198,6 @@
     touch-action:none;
     pointer-events:none;
   }
-  #drawCanvas.active{
-    pointer-events:auto;
-  }
 
   #drawToggleBtn{
     position:fixed;
@@ -242,6 +239,35 @@
       inset 0 -6px 10px -4px rgba(0,0,0,0.15);
   }
   #drawToggleBtn.on svg{ transform:rotate(90deg); }
+
+  #zoomToggleBtn{
+    position:fixed;
+    left:20px;
+    bottom:20px;
+    width:58px;height:58px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.5);
+    background:
+      linear-gradient(150deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
+      linear-gradient(155deg,var(--c1-a),var(--c1-b));
+    backdrop-filter: blur(10px) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    box-shadow:
+      0 14px 28px -10px var(--c1-sh),
+      inset 0 1px 1px rgba(255,255,255,0.6),
+      inset 0 -6px 10px -4px rgba(0,0,0,0.15);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:9999;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:12.5px;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1);
+  }
+  #zoomToggleBtn:active{transform:scale(0.90);}
 
   #drawToolbar{
     position:fixed;
@@ -360,6 +386,7 @@
 
 <!-- ==== Малювання поверх екрана (для вчителя) ==== -->
 <canvas id="drawCanvas"></canvas>
+<button id="zoomToggleBtn" title="Збільшити текст">100%</button>
 <button id="drawToggleBtn" title="Малювати">
   <svg id="drawIcon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 20L4.6 16.6C4.7 15.9 5.03 15.26 5.55 14.79L15.3 5.7C16.09 4.96 17.34 4.99 18.09 5.78L18.34 6.04C19.08 6.83 19.04 8.08 18.25 8.81L8.5 17.9C8 18.37 7.37 18.66 6.7 18.75L4 20Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/>
@@ -636,8 +663,9 @@ renderAll();
 
 // ======================================================================
 // МАЛЮВАННЯ ПОВЕРХ ЕКРАНА (режим "учитель")
-// Дозволяє малювати Apple Pencil / пальцем прямо на екрані, не заважаючи
-// звичайній роботі уроку, коли режим малювання вимкнено.
+// Малює ЛИШЕ Apple Pencil (pointerType === 'pen'). Палець і миша завжди
+// проходять крізь canvas без змін — можна гортати, перевертати картки й
+// робити pinch-zoom навіть коли режим малювання ввімкнено.
 // ======================================================================
 (function(){
   const canvas = document.getElementById('drawCanvas');
@@ -722,16 +750,19 @@ renderAll();
     return { x: e.clientX, y: e.clientY, pressure: e.pressure || 0.5 };
   }
 
-  canvas.addEventListener('pointerdown', (e)=>{
-    if(!drawingActive) return;
+  function isPen(e){ return e.pointerType === 'pen'; }
+
+  window.addEventListener('pointerdown', (e)=>{
+    if(!drawingActive || !isPen(e)) return;
     isDrawing = true;
     const p = pointerPos(e);
     lastX = p.x; lastY = p.y;
-    canvas.setPointerCapture(e.pointerId);
-  });
+    e.preventDefault();
+  }, {passive:false});
 
-  canvas.addEventListener('pointermove', (e)=>{
-    if(!drawingActive || !isDrawing) return;
+  window.addEventListener('pointermove', (e)=>{
+    if(!drawingActive || !isDrawing || !isPen(e)) return;
+    e.preventDefault();
     const p = pointerPos(e);
     ctx.globalCompositeOperation = eraserMode ? 'destination-out' : 'source-over';
     ctx.strokeStyle = currentColor;
@@ -742,14 +773,29 @@ renderAll();
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     lastX = p.x; lastY = p.y;
-  });
+  }, {passive:false});
 
   function stopDrawing(e){
+    if(e && !isPen(e)) return;
     isDrawing = false;
   }
-  canvas.addEventListener('pointerup', stopDrawing);
-  canvas.addEventListener('pointercancel', stopDrawing);
-  canvas.addEventListener('pointerleave', stopDrawing);
+  window.addEventListener('pointerup', stopDrawing);
+  window.addEventListener('pointercancel', stopDrawing);
+})();
+
+// ======================================================================
+// ЗБІЛЬШЕННЯ ЕКРАНА (для показу класу на проєкторі/телевізорі)
+// ======================================================================
+(function(){
+  const zoomBtn = document.getElementById('zoomToggleBtn');
+  const zoomTarget = document.querySelector('.wrap');
+  const levels = [1, 1.25, 1.5];
+  let zi = 0;
+  zoomBtn.addEventListener('click', ()=>{
+    zi = (zi + 1) % levels.length;
+    zoomTarget.style.zoom = levels[zi];
+    zoomBtn.textContent = Math.round(levels[zi]*100) + '%';
+  });
 })();
 </script>
 </body>
