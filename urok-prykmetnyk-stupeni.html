@@ -189,14 +189,17 @@
   footer{text-align:center;margin-top:22px;font-size:12.5px;color:var(--ink-soft);font-weight:500;}
 
   /* ===================== DRAWING / TEACHER MODE ===================== */
+  /* Canvas is positioned over the whole DOCUMENT (not just the viewport),
+     so ink scrolls together with the page content instead of staying
+     glued to the screen. Its size is recalculated after every content
+     change (see resizeCanvas() below). */
   #drawCanvas{
-    position:fixed;
-    inset:0;
-    width:100vw;
-    height:100vh;
+    position:absolute;
+    top:0;
+    left:0;
     z-index:9998;
-    touch-action:none;
-    pointer-events:none;
+    pointer-events:none; /* drawing is handled via window-level listeners so
+                             taps/clicks on real UI underneath always pass through */
   }
 
   #drawToggleBtn{
@@ -239,35 +242,6 @@
       inset 0 -6px 10px -4px rgba(0,0,0,0.15);
   }
   #drawToggleBtn.on svg{ transform:rotate(90deg); }
-
-  #zoomToggleBtn{
-    position:fixed;
-    left:20px;
-    bottom:20px;
-    width:58px;height:58px;
-    border-radius:50%;
-    border:1px solid rgba(255,255,255,0.5);
-    background:
-      linear-gradient(150deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
-      linear-gradient(155deg,var(--c1-a),var(--c1-b));
-    backdrop-filter: blur(10px) saturate(160%);
-    -webkit-backdrop-filter: blur(10px) saturate(160%);
-    box-shadow:
-      0 14px 28px -10px var(--c1-sh),
-      inset 0 1px 1px rgba(255,255,255,0.6),
-      inset 0 -6px 10px -4px rgba(0,0,0,0.15);
-    color:#fff;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    z-index:9999;
-    font-family:'Manrope',sans-serif;
-    font-weight:800;
-    font-size:12.5px;
-    transition:transform .18s cubic-bezier(.34,1.56,.64,1);
-  }
-  #zoomToggleBtn:active{transform:scale(0.90);}
 
   #drawToolbar{
     position:fixed;
@@ -386,7 +360,6 @@
 
 <!-- ==== Малювання поверх екрана (для вчителя) ==== -->
 <canvas id="drawCanvas"></canvas>
-<button id="zoomToggleBtn" title="Збільшити текст">100%</button>
 <button id="drawToggleBtn" title="Малювати">
   <svg id="drawIcon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 20L4.6 16.6C4.7 15.9 5.03 15.26 5.55 14.79L15.3 5.7C16.09 4.96 17.34 4.99 18.09 5.78L18.34 6.04C19.08 6.83 19.04 8.08 18.25 8.81L8.5 17.9C8 18.37 7.37 18.66 6.7 18.75L4 20Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/>
@@ -576,6 +549,7 @@ function renderContent(){
   if(s.type === "quiz"){
     lessonArea.innerHTML = html;
     renderQuiz(s);
+    syncCanvasAfterRender();
     return;
   }
 
@@ -583,6 +557,14 @@ function renderContent(){
   lessonArea.querySelectorAll('[data-kind="card"], [data-kind="chip"], [data-kind="row"]').forEach(el=>{
     el.onclick = ()=>{ el.classList.toggle('open'); };
   });
+  syncCanvasAfterRender();
+}
+
+function syncCanvasAfterRender(){
+  // дає верстці "осісти", а тоді підганяє розмір канвасу малювання під нову висоту сторінки
+  if(window.resizeDrawCanvas){
+    requestAnimationFrame(()=> requestAnimationFrame(window.resizeDrawCanvas));
+  }
 }
 
 function quizScore(qs){
@@ -663,9 +645,26 @@ renderAll();
 
 // ======================================================================
 // МАЛЮВАННЯ ПОВЕРХ ЕКРАНА (режим "учитель")
+//
 // Малює ЛИШЕ Apple Pencil (pointerType === 'pen'). Палець і миша завжди
 // проходять крізь canvas без змін — можна гортати, перевертати картки й
 // робити pinch-zoom навіть коли режим малювання ввімкнено.
+//
+// Виправлення порівняно з попередньою версією:
+// 1) Канвас тепер розтягнутий на всю ВИСОТУ СТОРІНКИ (а не лише
+//    видиму частину екрана) і позиціонований у потоці документа
+//    (position:absolute, а не fixed). Тому написане прокручується
+//    разом із контентом і не "відривається" від місця, де ви писали.
+// 2) Координати беруться з e.pageX/e.pageY (враховують прокрутку),
+//    що відповідає системі координат такого канвасу.
+// 3) preventDefault викликається лише під час РУХУ пером (малювання),
+//    а не одразу на дотику — тому короткий дотик пером без руху
+//    сприймається як звичайний клік і працює на картках/кнопках.
+// 4) Поки ввімкнено малювання, touch-action сторінки виставлено в
+//    "pinch-zoom": однопальцеве (і "долонею") прокручування
+//    заблоковано (щоб екран не "їхав" під час письма), але
+//    двопальцевий pinch-zoom залишається доступним — окрема кнопка
+//    масштабу більше не потрібна.
 // ======================================================================
 (function(){
   const canvas = document.getElementById('drawCanvas');
@@ -684,25 +683,44 @@ renderAll();
   let currentWidth = 4;
   let eraserMode = false;
   let lastX = 0, lastY = 0;
+  const MOVE_THRESHOLD = 2; // px — щоб дрібне тремтіння пера не лишало крапку при кліку
+
+  function docSize(){
+    return {
+      w: document.documentElement.clientWidth,
+      h: Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
+    };
+  }
 
   function resizeCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    const {w, h} = docSize();
+
+    // зберігаємо вже намальоване
     const prev = document.createElement('canvas');
     prev.width = canvas.width;
     prev.height = canvas.height;
-    prev.getContext('2d').drawImage(canvas, 0, 0);
+    if(canvas.width && canvas.height){
+      prev.getContext('2d').drawImage(canvas, 0, 0);
+    }
 
-    canvas.width = window.innerWidth * devicePixelRatio;
-    canvas.height = window.innerHeight * devicePixelRatio;
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    ctx.drawImage(prev, 0, 0, prev.width / devicePixelRatio, prev.height / devicePixelRatio);
+    if(prev.width && prev.height){
+      ctx.drawImage(prev, 0, 0, prev.width / dpr, prev.height / dpr);
+    }
   }
+  window.resizeDrawCanvas = resizeCanvas;
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', ()=> setTimeout(resizeCanvas, 200));
+  window.addEventListener('load', resizeCanvas);
 
   window.clearDrawing = function(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -714,6 +732,13 @@ renderAll();
     toolbar.classList.toggle('show', on);
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
+    // поки малюємо — блокуємо однопальцеве прокручування (щоб долоня,
+    // яка спирається на екран, не "їхала" сторінкою), але лишаємо
+    // pinch-zoom доступним для збільшення двома пальцями
+    const ta = on ? 'pinch-zoom' : 'auto';
+    document.documentElement.style.touchAction = ta;
+    document.body.style.touchAction = ta;
+    if(on) resizeCanvas();
   }
 
   toggleBtn.addEventListener('click', ()=> setActive(!drawingActive));
@@ -747,23 +772,29 @@ renderAll();
   });
 
   function pointerPos(e){
-    return { x: e.clientX, y: e.clientY, pressure: e.pressure || 0.5 };
+    // pageX/pageY вже враховують прокрутку — збігаються з координатами
+    // канвасу, який стоїть у потоці документа
+    return { x: e.pageX, y: e.pageY, pressure: e.pressure || 0.5 };
   }
 
   function isPen(e){ return e.pointerType === 'pen'; }
 
+  // pointerdown навмисно НЕ викликає preventDefault: якщо це просто дотик
+  // пером без руху (тап по картці/кнопці), браузер має нормально
+  // згенерувати клік по елементу під пером.
   window.addEventListener('pointerdown', (e)=>{
     if(!drawingActive || !isPen(e)) return;
     isDrawing = true;
     const p = pointerPos(e);
     lastX = p.x; lastY = p.y;
-    e.preventDefault();
-  }, {passive:false});
+  }, {passive:true});
 
   window.addEventListener('pointermove', (e)=>{
     if(!drawingActive || !isDrawing || !isPen(e)) return;
-    e.preventDefault();
     const p = pointerPos(e);
+    const dx = p.x - lastX, dy = p.y - lastY;
+    if(Math.hypot(dx,dy) < MOVE_THRESHOLD) return;
+    e.preventDefault(); // стоп сторінці — це вже реальний рух-малювання
     ctx.globalCompositeOperation = eraserMode ? 'destination-out' : 'source-over';
     ctx.strokeStyle = currentColor;
     const pressureFactor = 0.6 + (p.pressure || 0.5) * 0.8;
@@ -776,26 +807,10 @@ renderAll();
   }, {passive:false});
 
   function stopDrawing(e){
-    if(e && !isPen(e)) return;
     isDrawing = false;
   }
   window.addEventListener('pointerup', stopDrawing);
   window.addEventListener('pointercancel', stopDrawing);
-})();
-
-// ======================================================================
-// ЗБІЛЬШЕННЯ ЕКРАНА (для показу класу на проєкторі/телевізорі)
-// ======================================================================
-(function(){
-  const zoomBtn = document.getElementById('zoomToggleBtn');
-  const zoomTarget = document.querySelector('.wrap');
-  const levels = [1, 1.25, 1.5];
-  let zi = 0;
-  zoomBtn.addEventListener('click', ()=>{
-    zi = (zi + 1) % levels.length;
-    zoomTarget.style.zoom = levels[zi];
-    zoomBtn.textContent = Math.round(levels[zi]*100) + '%';
-  });
 })();
 </script>
 </body>
