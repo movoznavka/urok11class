@@ -451,13 +451,30 @@ const subtabbar = document.getElementById('subtabbar');
 const subsubtabbar = document.getElementById('subsubtabbar');
 const lessonArea = document.getElementById('lessonArea');
 
-function resetQuiz(){ quizIdx = 0; quizAnswers = {}; if(window.clearDrawing) window.clearDrawing(); }
+function resetQuiz(){ quizIdx = 0; quizAnswers = {}; }
 
 function currentSub(){ return SUBS[activeSub]; }
 function currentSection(){
   const sub = currentSub();
   if(sub.type === "nested") return sub.subsubs[activeSubsub];
   return sub;
+}
+
+// ---- per-tab drawing storage: намальоване на кожній вкладці (і на кожному
+// питанні тесту) зберігається окремо, тож перехід на іншу вкладку й назад
+// не стирає написане, а показує саме те, що було на ній ----
+const drawStore = {};
+function sectionKey(){
+  const sub = currentSub();
+  let k = activeSub + '__' + activeSubsub;
+  if(sub.type === "quiz") k += '__q' + quizIdx;
+  return k;
+}
+function saveCurrentDrawing(){
+  if(window.getDrawingSnapshot) drawStore[sectionKey()] = window.getDrawingSnapshot();
+}
+function restoreCurrentDrawing(){
+  if(window.setDrawingSnapshot) window.setDrawingSnapshot(drawStore[sectionKey()] || null);
 }
 
 function renderSubs(){
@@ -467,6 +484,7 @@ function renderSubs(){
     </button>`).join('');
   subtabbar.querySelectorAll('.tab').forEach(btn=>{
     btn.onclick = ()=>{
+      saveCurrentDrawing();
       activeSub = +btn.dataset.i;
       activeSubsub = 0;
       resetQuiz();
@@ -546,9 +564,13 @@ function renderContent(){
 }
 
 function syncCanvasAfterRender(){
-  // дає верстці "осісти", а тоді підганяє розмір канвасу малювання під нову висоту сторінки
+  // дає верстці "осісти", а тоді підганяє розмір канвасу малювання під нову висоту сторінки,
+  // і відновлює те, що було намальоване саме на цій вкладці (якщо було)
   if(window.resizeDrawCanvas){
-    requestAnimationFrame(()=> requestAnimationFrame(window.resizeDrawCanvas));
+    requestAnimationFrame(()=> requestAnimationFrame(()=>{
+      window.resizeDrawCanvas();
+      restoreCurrentDrawing();
+    }));
   }
 }
 
@@ -616,8 +638,8 @@ function renderQuiz(s){
   });
   const prevBtn = document.getElementById('quizPrev');
   const nextBtn = document.getElementById('quizNext');
-  if(prevBtn) prevBtn.onclick = ()=>{ quizIdx--; if(window.clearDrawing) window.clearDrawing(); renderContent(); };
-  if(nextBtn) nextBtn.onclick = ()=>{ quizIdx++; if(window.clearDrawing) window.clearDrawing(); renderContent(); };
+  if(prevBtn) prevBtn.onclick = ()=>{ saveCurrentDrawing(); quizIdx--; renderContent(); };
+  if(nextBtn) nextBtn.onclick = ()=>{ saveCurrentDrawing(); quizIdx++; renderContent(); };
 }
 
 function renderAll(){
@@ -709,6 +731,23 @@ renderAll();
 
   window.clearDrawing = function(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  // ---- знімок малюнка для збереження/відновлення per-вкладка ----
+  window.getDrawingSnapshot = function(){
+    try{
+      return (canvas.width && canvas.height) ? canvas.toDataURL('image/png') : null;
+    }catch(e){ return null; }
+  };
+  window.setDrawingSnapshot = function(dataURL){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(!dataURL) return;
+    const img = new Image();
+    img.onload = function(){
+      const d = window.devicePixelRatio || 1;
+      ctx.drawImage(img, 0, 0, canvas.width / d, canvas.height / d);
+    };
+    img.src = dataURL;
   };
 
   function setActive(on){

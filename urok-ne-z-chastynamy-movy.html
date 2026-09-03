@@ -145,6 +145,23 @@
   .combo-ipa{font-size:13px;font-weight:700;color:var(--c3-b);opacity:0;transition:opacity .2s;}
   .combo-row.open .combo-ipa{opacity:1;}
 
+  /* compare table: Разом vs Окремо side by side */
+  .cmp-wrap{margin-top:18px;}
+  .cmp-title{font-family:'Manrope',sans-serif;font-weight:800;font-size:13.5px;color:var(--ink);margin-bottom:10px;}
+  .cmp-head{display:flex;gap:10px;padding:0 4px;margin-bottom:8px;}
+  .cmp-head span{flex:1;font-family:'Manrope',sans-serif;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+  .cmp-table{display:flex;flex-direction:column;gap:8px;}
+  .cmp-row{display:flex;gap:10px;}
+  @media(max-width:420px){.cmp-row{flex-direction:column;}}
+  .cmp-cell{flex:1;border-radius:16px;padding:12px 14px;}
+  .cmp-cell.together{background:linear-gradient(155deg, rgba(167,139,250,.18), rgba(124,58,237,.08));}
+  .cmp-cell.separately{background:linear-gradient(155deg, rgba(255,184,108,.24), rgba(245,130,13,.10));}
+  .cmp-word{font-family:'Manrope',sans-serif;font-weight:800;font-size:14px;color:var(--ink);}
+  .cmp-mean{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.4;}
+
+  /* extra chip row appended under cards */
+  .extra-chips{margin-top:18px;}
+
   /* mini quiz */
   .qtext{font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;line-height:1.4;margin:0 0 18px;}
   .options{display:flex;flex-direction:column;gap:10px;}
@@ -355,14 +372,12 @@
 <div class="wrap">
   <div class="topbar">
     <div class="kicker">Орфографія · Урок</div>
-    <div class="kicker tag" id="totalTag"></div>
   </div>
 
   <h1>НЕ з різними <span class="hl">частинами мови</span></h1>
 
-  <div class="topictoggle" id="topictoggle"></div>
-  <div class="tabbar" id="subtabbar"></div>
-  <div class="tabbar nested" id="subsubtabbar"></div>
+  <div class="tabbar" id="postabbar"></div>
+  <div class="topictoggle" id="rstoggle"></div>
 
   <div class="card" id="lessonArea"></div>
 
@@ -417,12 +432,11 @@
    ============================================================ */
 
 const TOPICS = {
-  together: {
-    label: "Разом",
-    subs: [
-      {
-        id: "t-imennyk", tab: "Іменник", dot: "1", type: "cards",
-        title: "Іменник",
+  imennyk: {
+    label: "Іменник", dot: "1",
+    rs: {
+      together: {
+        title: "Іменник — разом",
         intro: "З іменниками «не» пишеться разом, якщо це префікс, слово без «не» не вживається або до нього можна дібрати синонім.",
         cards: [
           {rule: "«Не» — префікс", desc: "утворює нове слово, протилежне за змістом", examples: [{word: "правда", ipa: "→ неправда"}, {word: "щастя", ipa: "→ нещастя"}]},
@@ -430,191 +444,226 @@ const TOPICS = {
           {rule: "Без «не» не вживається", desc: "", examples: [{word: "непорядок"}, {word: "негода"}]}
         ]
       },
-      {
-        id: "t-prykmetnyk", tab: "Прикметник", dot: "2", type: "cards",
-        title: "Прикметник",
+      separately: {
+        title: "Іменник — окремо",
+        intro: "З іменниками «не» пишеться окремо, якщо це заперечна частка — при протиставленні або зі словами, що пишуться через дефіс.",
+        cards: [
+          {rule: "Протиставлення зі сполучником «а»", desc: "", examples: [{word: "не правда, а вигадка"}]},
+          {rule: "Слово пишеться через дефіс", desc: "", examples: [{word: "не купівля-продаж"}]}
+        ]
+      }
+    }
+  },
+  prykmetnyk: {
+    label: "Прикметник", dot: "2",
+    rs: {
+      together: {
+        title: "Прикметник — разом",
         intro: "Так само, як з іменниками: разом, якщо «не» — префікс, слово без нього не вживається або є синонім без «не».",
         cards: [
           {rule: "Синонім без «не»", desc: "", examples: [{word: "невеселий", ipa: "= сумний"}]},
           {rule: "Без «не» не вживається", desc: "", examples: [{word: "непохитний"}, {word: "нездоланний"}]}
         ]
       },
-      {
-        id: "t-diyeslovo", tab: "Дієслово", dot: "3", type: "cards",
-        title: "Дієслово",
-        intro: "Дієслова з «не» пишуться разом, якщо без «не» вони не вживаються, а також у складі префікса «недо-», що означає постійну, тривалу неповноту дії.",
-        cards: [
-          {rule: "Без «не» не вживається", desc: "", examples: [{word: "ненавидіти"}, {word: "нездужати", ipa: "= хворіти"}, {word: "непокоїтися", ipa: "= хвилюватися"}, {word: "неславити", ipa: "= ганьбити"}, {word: "немає", ipa: "= нема"}]},
-          {rule: "Префікс «недо-»: постійна, тривала дія", desc: "дія триває весь час — стала властивість, а не одноразова ситуація", examples: [{word: "недоїдає", ipa: "з дитинства недоїдає", note: "постійно їсть замало"}]}
-        ],
-        mnemo: "<b>Порівняй:</b> «з дитинства недоїдає» (завжди мало їсть — разом) і «не доїв сніданок» (сьогодні не встиг — окремо, дивись тему «Окремо → Дієслово»)."
-      },
-      {
-        id: "t-diyeprykmetnyk", tab: "Дієприкметник", dot: "4", type: "cards",
-        title: "Дієприкметник",
-        intro: "Разом пишемо дієприкметник, який виконує роль означення (який?) і не має пояснювальних слів.",
-        cards: [
-          {rule: "Означення без пояснювальних слів", desc: "залежних слів немає", examples: [{word: "непрочитана книга"}]}
-        ]
-      },
-      {
-        id: "t-diyeprysliv", tab: "Дієприслівник", dot: "5", type: "cards",
-        title: "Дієприслівник",
-        intro: "Дієприслівник пишеться з «не» так само, як дієслово, від якого він утворений.",
-        cards: [
-          {rule: "ненавидячи", desc: "бо «ненавидіти» пишеться разом", examples: [{word: "ненавидячи", ipa: "← ненавидіти"}]}
-        ],
-        mnemo: "<b>Правило одне:</b> подивись, як пишеться дієслово, від якого утворено дієприслівник, — і повтори те саме написання."
-      },
-      {
-        id: "t-prysliv", tab: "Прислівник", dot: "6", type: "cards",
-        title: "Прислівник",
-        intro: "Прислівники пишуться з «не» разом за тими самими правилами, що іменники й прикметники.",
-        cards: [
-          {rule: "Без «не» не вживається", desc: "", examples: [{word: "негайно"}]},
-          {rule: "Синонім без «не»", desc: "", examples: [{word: "невесело", ipa: "= сумно"}]}
-        ]
-      }
-    ]
-  },
-  separately: {
-    label: "Окремо",
-    subs: [
-      {
-        id: "o-imennyk", tab: "Іменник", dot: "1", type: "cards",
-        title: "Іменник",
-        intro: "З іменниками «не» пишеться окремо, якщо це заперечна частка — при протиставленні або зі словами, що пишуться через дефіс.",
-        cards: [
-          {rule: "Протиставлення зі сполучником «а»", desc: "", examples: [{word: "не правда, а вигадка"}]},
-          {rule: "Слово пишеться через дефіс", desc: "", examples: [{word: "не купівля-продаж"}]}
-        ]
-      },
-      {
-        id: "o-prykmetnyk", tab: "Прикметник", dot: "2", type: "cards",
-        title: "Прикметник",
+      separately: {
+        title: "Прикметник — окремо",
         intro: "Окремо пишемо, якщо «не» заперечує ознаку — при протиставленні, з пояснювальними словами або перед словом через дефіс.",
         cards: [
           {rule: "Протиставлення зі сполучником «а»", desc: "", examples: [{word: "не веселий, а сумний"}]},
           {rule: "З пояснювальними словами", desc: "ні…, далеко, аж, ніяк, зовсім", examples: [{word: "ні до чого не здатний"}, {word: "зовсім не близький"}, {word: "аж ніяк не впевнений"}]},
           {rule: "Слово пишеться через дефіс", desc: "", examples: [{word: "не жовто-блакитний"}]}
         ]
+      }
+    }
+  },
+  diyeslovo: {
+    label: "Дієслово", dot: "3",
+    rs: {
+      together: {
+        title: "Дієслово — разом",
+        intro: "Дієслова з «не» пишуться разом, якщо без «не» вони не вживаються, а також у складі префікса «недо-», що означає постійну, тривалу неповноту дії.",
+        cards: [
+          {rule: "Без «не» не вживається", desc: "", examples: [{word: "ненавидіти"}, {word: "нездужати", ipa: "= хворіти"}, {word: "непокоїтися", ipa: "= хвилюватися"}, {word: "неславити", ipa: "= ганьбити"}, {word: "немає", ipa: "= нема"}]}
+        ],
+        extraTable: {
+          title: "Розрізняй: «недо-» (стала ознака) і «не» (одноразова дія)",
+          rows: [
+            {together:{word:"недобачати", mean:"погано мати зір — стала, постійна ознака"}, separately:{word:"не добачити", mean:"не помітити щось конкретне — одна дія цього разу"}},
+            {together:{word:"недоїдає", mean:"з дитинства недоїдає — постійно їсть замало"}, separately:{word:"не доїв", mean:"не доїв сніданок, бо поспішав — сьогодні не встиг"}}
+          ]
+        }
       },
-      {
-        id: "o-diyeslovo", tab: "Дієслово", dot: "3", type: "cards",
-        title: "Дієслово",
+      separately: {
+        title: "Дієслово — окремо",
         intro: "Дієслова з «не» майже завжди пишуться окремо — тут «не» заперечна частка.",
         cards: [
           {rule: "Загальне правило", desc: "", examples: [{word: "не можна"}, {word: "не треба"}]},
-          {rule: "Порівняй зі спорідненим словом", desc: "", examples: [{word: "не здужати", ipa: "= не змогти"}, {word: "не покоїтися", ipa: "= не бути похованим"}, {word: "не славити", ipa: "= не прославляти"}, {word: "не має", ipa: "≠ нема"}]},
-          {rule: "Одноразова перервана дія", desc: "порівняй з «недоїдає» — тут дія не завершена саме цього разу", examples: [{word: "не доїв", ipa: "не доїв сніданок, бо поспішав"}]},
           {rule: "Безособові форми на -но, -то", desc: "", examples: [{word: "не зроблено"}, {word: "не сказано"}]}
+        ],
+        extraChips: [
+          {word: "не здужати", ipa: "= не змогти"},
+          {word: "не покоїтися", ipa: "= не бути похованим"},
+          {word: "не славити", ipa: "= не прославляти"},
+          {word: "не має", ipa: "≠ нема"}
+        ],
+        extraTable: {
+          title: "Розрізняй: «недо-» (стала ознака) і «не» (одноразова дія)",
+          rows: [
+            {together:{word:"недобачати", mean:"погано мати зір — стала, постійна ознака"}, separately:{word:"не добачити", mean:"не помітити щось конкретне — одна дія цього разу"}},
+            {together:{word:"недоїдає", mean:"з дитинства недоїдає — постійно їсть замало"}, separately:{word:"не доїв", mean:"не доїв сніданок, бо поспішав — сьогодні не встиг"}}
+          ]
+        }
+      }
+    }
+  },
+  diyeprykmetnyk: {
+    label: "Дієприкметник", dot: "4",
+    rs: {
+      together: {
+        title: "Дієприкметник — разом",
+        intro: "Разом пишемо дієприкметник, який виконує роль означення (який?) і не має пояснювальних слів.",
+        cards: [
+          {rule: "Означення без пояснювальних слів", desc: "залежних слів немає", examples: [{word: "непрочитана книга"}]}
         ]
       },
-      {
-        id: "o-diyeprykmetnyk", tab: "Дієприкметник", dot: "4", type: "cards",
-        title: "Дієприкметник",
+      separately: {
+        title: "Дієприкметник — окремо",
         intro: "Окремо пишемо дієприкметник, якщо є пояснювальне слово або він виконує роль присудка.",
         cards: [
           {rule: "Означення з пояснювальним словом", desc: "є залежне слово («ще»)", examples: [{word: "ще не прочитана книга"}]},
           {rule: "Роль присудка", desc: "", examples: [{word: "книга не прочитана"}]}
         ]
+      }
+    }
+  },
+  diyepryslivnyk: {
+    label: "Дієприслівник", dot: "5",
+    rs: {
+      together: {
+        title: "Дієприслівник — разом",
+        intro: "Дієприслівник пишеться з «не» так само, як дієслово, від якого він утворений.",
+        cards: [
+          {rule: "ненавидячи", desc: "бо «ненавидіти» пишеться разом", examples: [{word: "ненавидячи", ipa: "← ненавидіти"}]}
+        ],
+        mnemo: "<b>Правило одне:</b> подивись, як пишеться дієслово, від якого утворено дієприслівник, — і повтори те саме написання."
       },
-      {
-        id: "o-diyeprysliv", tab: "Дієприслівник", dot: "5", type: "cards",
-        title: "Дієприслівник",
+      separately: {
+        title: "Дієприслівник — окремо",
         intro: "Дієприслівник пишеться з «не» так само, як дієслово, від якого він утворений.",
         cards: [
           {rule: "не зробивши", desc: "бо «не зробити» пишеться окремо", examples: [{word: "не зробивши", ipa: "← не зробити"}]}
+        ],
+        mnemo: "<b>Правило одне:</b> подивись, як пишеться дієслово, від якого утворено дієприслівник, — і повтори те саме написання."
+      }
+    }
+  },
+  pryslivnyk: {
+    label: "Прислівник", dot: "6",
+    rs: {
+      together: {
+        title: "Прислівник — разом",
+        intro: "Прислівники пишуться з «не» разом за тими самими правилами, що іменники й прикметники.",
+        cards: [
+          {rule: "Без «не» не вживається", desc: "", examples: [{word: "негайно"}]},
+          {rule: "Синонім без «не»", desc: "", examples: [{word: "невесело", ipa: "= сумно"}]}
         ]
       },
-      {
-        id: "o-prysliv", tab: "Прислівник", dot: "6", type: "cards",
-        title: "Прислівник",
+      separately: {
+        title: "Прислівник — окремо",
         intro: "Більшість прислівників з «не» пишуться окремо — «не» заперечує ознаку.",
         cards: [
           {rule: "Загальне правило", desc: "", examples: [{word: "не тут"}, {word: "не сьогодні"}]},
           {rule: "Протиставлення зі сполучником «а»", desc: "", examples: [{word: "не далеко, а близько"}]}
         ]
       }
-    ]
+    }
   }
 };
 
 const LETTERS = ["А","Б","В","Г"];
-const TOPIC_ORDER = ["together","separately"];
+const POS_ORDER = ["imennyk","prykmetnyk","diyeslovo","diyeprykmetnyk","diyepryslivnyk","pryslivnyk"];
+const RS_ORDER = [
+  {key: "together", label: "Разом"},
+  {key: "separately", label: "Окремо"}
+];
 
-let activeTopic = "together";
-let activeSub = 0;
-let activeSubsub = 0;
+let activePOS = 0;
+let activeRS = 0;
 let quizIdx = 0;
 let quizAnswers = {};
 
-const topictoggle = document.getElementById('topictoggle');
-const subtabbar = document.getElementById('subtabbar');
-const subsubtabbar = document.getElementById('subsubtabbar');
+const postabbar = document.getElementById('postabbar');
+const rstoggle = document.getElementById('rstoggle');
 const lessonArea = document.getElementById('lessonArea');
 
-function resetNav(){ activeSub = 0; activeSubsub = 0; quizIdx = 0; quizAnswers = {}; if(window.clearDrawing) window.clearDrawing(); }
-function resetQuiz(){ quizIdx = 0; quizAnswers = {}; if(window.clearDrawing) window.clearDrawing(); }
+function resetRS(){ activeRS = 0; quizIdx = 0; quizAnswers = {}; }
+function resetQuiz(){ quizIdx = 0; quizAnswers = {}; }
 
-function currentSub(){ return TOPICS[activeTopic].subs[activeSub]; }
-function currentSection(){
-  const sub = currentSub();
-  if(sub.type === "nested") return sub.subsubs[activeSubsub];
-  return sub;
+function currentSection(){ return TOPICS[POS_ORDER[activePOS]].rs[RS_ORDER[activeRS].key]; }
+
+// ---- per-tab drawing storage: намальоване на кожній вкладці (частина мови
+// + Разом/Окремо) зберігається окремо, тож перехід на іншу вкладку й назад
+// не стирає написане, а показує саме те, що було на ній ----
+const drawStore = {};
+function sectionKey(){ return POS_ORDER[activePOS] + '__' + RS_ORDER[activeRS].key; }
+function saveCurrentDrawing(){
+  if(window.getDrawingSnapshot) drawStore[sectionKey()] = window.getDrawingSnapshot();
+}
+function restoreCurrentDrawing(){
+  if(window.setDrawingSnapshot) window.setDrawingSnapshot(drawStore[sectionKey()] || null);
 }
 
-function renderTopics(){
-  topictoggle.innerHTML = TOPIC_ORDER.map(key => `
-    <button class="${key===activeTopic?'active':''}" data-key="${key}">${TOPICS[key].label}</button>
+function renderPOS(){
+  postabbar.innerHTML = POS_ORDER.map((key,i)=>{
+    const t = TOPICS[key];
+    return `<button class="tab ${i===activePOS?'active':''}" data-i="${i}">
+      <span class="dot">${t.dot}</span>${t.label}
+    </button>`;
+  }).join('');
+  postabbar.querySelectorAll('.tab').forEach(btn=>{
+    btn.onclick = ()=>{
+      saveCurrentDrawing();
+      activePOS = +btn.dataset.i;
+      resetRS();
+      renderAll();
+    };
+  });
+}
+
+function renderRS(){
+  rstoggle.innerHTML = RS_ORDER.map((r,i)=>`
+    <button class="${i===activeRS?'active':''}" data-i="${i}">${r.label}</button>
   `).join('');
-  topictoggle.querySelectorAll('button').forEach(btn=>{
+  rstoggle.querySelectorAll('button').forEach(btn=>{
     btn.onclick = ()=>{
-      activeTopic = btn.dataset.key;
-      resetNav();
-      renderAll();
-    };
-  });
-}
-
-function renderSubs(){
-  const subs = TOPICS[activeTopic].subs;
-  subtabbar.innerHTML = subs.map((s,i)=>`
-    <button class="tab ${i===activeSub?'active':''}" data-i="${i}">
-      <span class="dot">${s.dot}</span>${s.tab}
-    </button>`).join('');
-  subtabbar.querySelectorAll('.tab').forEach(btn=>{
-    btn.onclick = ()=>{
-      activeSub = +btn.dataset.i;
-      activeSubsub = 0;
+      saveCurrentDrawing();
+      activeRS = +btn.dataset.i;
       resetQuiz();
       renderAll();
     };
   });
 }
 
-function renderSubSubs(){
-  const sub = currentSub();
-  if(sub.type !== "nested"){ subsubtabbar.innerHTML = ""; subsubtabbar.style.display = "none"; return; }
-  subsubtabbar.style.display = "flex";
-  subsubtabbar.innerHTML = sub.subsubs.map((s,i)=>`
-    <button class="tab ${i===activeSubsub?'active':''}" data-i="${i}">
-      <span class="dot">${s.dot}</span>${s.tab}
-    </button>`).join('');
-  subsubtabbar.querySelectorAll('.tab').forEach(btn=>{
-    btn.onclick = ()=>{
-      activeSubsub = +btn.dataset.i;
-      resetQuiz();
-      renderSubSubs();
-      renderContent();
-    };
-  });
+function renderCompareTable(t){
+  return `
+    <div class="cmp-wrap">
+      ${t.title ? `<div class="cmp-title">${t.title}</div>` : ''}
+      <div class="cmp-head"><span>Разом</span><span>Окремо</span></div>
+      <div class="cmp-table">
+        ${t.rows.map(r=>`
+          <div class="cmp-row">
+            <div class="cmp-cell together"><div class="cmp-word">${r.together.word}</div><div class="cmp-mean">${r.together.mean}</div></div>
+            <div class="cmp-cell separately"><div class="cmp-word">${r.separately.word}</div><div class="cmp-mean">${r.separately.mean}</div></div>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 function renderContent(){
   const s = currentSection();
+  const type = s.type || "cards";
   let html = `<p class="section-title">${s.title}</p><p class="section-intro">${s.intro}</p>`;
-  if(s.type === "cards"){
+  if(type === "cards"){
     html += `<div class="cardgrid">${s.cards.map((c)=>`
       <div class="flip" data-kind="card">        <div class="flip-inner">
           <div class="flip-face flip-front">
@@ -628,9 +677,19 @@ function renderContent(){
         </div>
       </div>`).join('')}</div>`;
     if(s.mnemo) html += `<div class="mnemo">${s.mnemo}</div>`;
+    if(s.extraChips){
+      html += `<div class="chiprow extra-chips">${s.extraChips.map((w)=>`
+        <div class="chip" data-kind="chip">
+          <div class="w">${w.word}</div>
+          <div class="ipa">${w.ipa}</div>
+        </div>`).join('')}</div>`;
+    }
+    if(s.extraTable){
+      html += renderCompareTable(s.extraTable);
+    }
   }
 
-  if(s.type === "exceptions"){
+  if(type === "exceptions"){
     html += `<div class="chiprow">${s.words.map((w)=>`
       <div class="chip" data-kind="chip">
         <div class="w">${w.word}</div>
@@ -638,7 +697,7 @@ function renderContent(){
       </div>`).join('')}</div>`;
   }
 
-  if(s.type === "table"){
+  if(type === "table"){
     html += `<div class="combo-table">${s.rows.map((r)=>`
       <div class="combo-row" data-kind="row">
         <span class="combo-write">${r.write}</span>
@@ -648,7 +707,7 @@ function renderContent(){
       </div>`).join('')}</div>`;
   }
 
-  if(s.type === "quiz"){
+  if(type === "quiz"){
     lessonArea.innerHTML = html;
     renderQuiz(s);
     syncCanvasAfterRender();
@@ -663,9 +722,13 @@ function renderContent(){
 }
 
 function syncCanvasAfterRender(){
-  // дає верстці "осісти", а тоді підганяє розмір канвасу малювання під нову висоту сторінки
+  // дає верстці "осісти", а тоді підганяє розмір канвасу малювання під нову висоту сторінки,
+  // і відновлює те, що було намальоване саме на цій вкладці (якщо було)
   if(window.resizeDrawCanvas){
-    requestAnimationFrame(()=> requestAnimationFrame(window.resizeDrawCanvas));
+    requestAnimationFrame(()=> requestAnimationFrame(()=>{
+      window.resizeDrawCanvas();
+      restoreCurrentDrawing();
+    }));
   }
 }
 
@@ -738,9 +801,8 @@ function renderQuiz(s){
 }
 
 function renderAll(){
-  renderTopics();
-  renderSubs();
-  renderSubSubs();
+  renderPOS();
+  renderRS();
   renderContent();
 }
 
@@ -827,6 +889,23 @@ renderAll();
 
   window.clearDrawing = function(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  // ---- знімок малюнка для збереження/відновлення per-вкладка ----
+  window.getDrawingSnapshot = function(){
+    try{
+      return (canvas.width && canvas.height) ? canvas.toDataURL('image/png') : null;
+    }catch(e){ return null; }
+  };
+  window.setDrawingSnapshot = function(dataURL){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(!dataURL) return;
+    const img = new Image();
+    img.onload = function(){
+      const d = window.devicePixelRatio || 1;
+      ctx.drawImage(img, 0, 0, canvas.width / d, canvas.height / d);
+    };
+    img.src = dataURL;
   };
 
   function setActive(on){
