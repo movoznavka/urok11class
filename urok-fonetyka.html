@@ -113,7 +113,16 @@
   /* flip cards */
   .cardgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   @media(max-width:560px){.cardgrid{grid-template-columns:1fr;}}
-  .flip{perspective:1200px;height:158px;cursor:pointer;}
+  .flip{perspective:1200px;height:158px;cursor:pointer;position:relative;}
+  /* шар для запису пером саме на цій картці — не бере участі у 3D-повороті,
+     тож завжди рівний і читабельний; його вміст перемикається в JS між
+     "переднім" і "заднім" записом залежно від того, який бік зараз показано */
+  canvas.card-ink{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;}
+  /* поки активне малювання пером — повністю блокуємо будь-яке масштабування
+     сторінки (в т.ч. дочірніми елементами, які можуть мати власний
+     touch-action), щоб дотик пером поза білою карткою не викликав
+     випадковий зум сторінки */
+  body.drawing-lock, body.drawing-lock *{touch-action:none !important;}
   .flip-inner{position:relative;width:100%;height:100%;transition:transform .5s cubic-bezier(.4,.2,.2,1);transform-style:preserve-3d;}
   .flip.open .flip-inner{transform:rotateY(180deg);}
   .flip-face{position:absolute;inset:0;border-radius:20px;padding:16px 18px;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:center;}
@@ -355,8 +364,9 @@
     border-radius:50%;
     background:currentColor;
   }
-  #thinBtn .dot{ width:6px; height:6px; }
-  #thickBtn .dot{ width:12px; height:12px; }
+  #xthinBtn .dot{ width:3.5px; height:3.5px; }
+  #thinBtn .dot{ width:7px; height:7px; }
+  #thickBtn .dot{ width:12.5px; height:12.5px; }
   .tool-btn.selected{
     background:var(--c1-b);
     color:#fff;
@@ -408,12 +418,13 @@
   </svg>
 </button>
 <div id="drawToolbar">
-  <button class="swatch selected" style="background:#E5484D" data-color="#E5484D"></button>
+  <button class="swatch selected" style="background:#F5304A" data-color="#F5304A"></button>
   <button class="swatch" style="background:#3355EE" data-color="#3355EE"></button>
   <button class="swatch" style="background:#17A863" data-color="#17A863"></button>
   <button class="swatch" style="background:#13213B" data-color="#13213B"></button>
   <div class="tool-sep"></div>
-  <button class="tool-btn selected" id="thinBtn" title="Тонка лінія"><span class="dot"></span></button>
+  <button class="tool-btn selected" id="xthinBtn" title="Дуже тонка лінія"><span class="dot"></span></button>
+  <button class="tool-btn" id="thinBtn" title="Тонка лінія"><span class="dot"></span></button>
   <button class="tool-btn" id="thickBtn" title="Товста лінія"><span class="dot"></span></button>
   <div class="tool-sep"></div>
   <button class="tool-btn" id="eraserBtn" title="Ластик">
@@ -685,10 +696,11 @@ function renderSubSubs(){
 
 function renderContent(){
   const s = currentSection();
+  const secKey = sectionKey();
   let html = `<p class="section-title">${s.title}</p><p class="section-intro">${s.intro}</p>`;
   if(s.type === "cards"){
-    html += `<div class="cardgrid">${s.cards.map((c)=>`
-      <div class="flip" data-kind="card">        <div class="flip-inner">
+    html += `<div class="cardgrid">${s.cards.map((c,idx)=>`
+      <div class="flip" data-kind="card" data-card-key="${secKey}__card${idx}">        <div class="flip-inner">
           <div class="flip-face flip-front">
             <div class="flip-rule">${c.rule}</div>
             <div class="flip-desc">${c.desc||''}</div>
@@ -728,8 +740,15 @@ function renderContent(){
   }
 
   lessonArea.innerHTML = html;
+  if(window.setupCardInk) window.setupCardInk();
   lessonArea.querySelectorAll('[data-kind="card"], [data-kind="chip"], [data-kind="row"]').forEach(el=>{
-    el.onclick = ()=>{ el.classList.toggle('open'); };
+    el.onclick = ()=>{
+      el.classList.toggle('open');
+      // при перевертанні картки чорнило має лишитись на тому боці, на якому
+      // його написали, а не "просвічувати" крізь новий бік — тому міняємо
+      // видимий шар запису саме тут, одразу після зміни класу open
+      if(el.dataset.kind === 'card' && window.onCardFlip) window.onCardFlip(el);
+    };
   });
   syncCanvasAfterRender();
 }
@@ -826,34 +845,25 @@ renderAll();
 // МАЛЮВАННЯ ПОВЕРХ ЕКРАНА (режим "учитель")
 //
 // Малює ЛИШЕ Apple Pencil (pointerType === 'pen'). Палець і миша завжди
-// проходять крізь canvas без змін — можна гортати й робити pinch-zoom
-// навіть коли режим малювання ввімкнено.
+// проходять крізь canvas без змін — можна гортати навіть коли режим
+// малювання ввімкнено (окрім зумування — див. нижче).
 //
-// Виправлення порівняно з попередньою версією:
-// 1) Канвас розтягнутий на всю висоту сторінки і позиціонований у
-//    потоці документа (position:absolute), тому написане прокручується
-//    разом із контентом.
-// 2) Координати беруться з e.pageX/e.pageY.
-// 3) ПОКИ РЕЖИМ МАЛЮВАННЯ УВІМКНЕНО, дотик пером ЗАВЖДИ preventDefault()
-//    вже на pointerdown — раніше це робилось лише після руху, тому
-//    браузер встигав або (а) розпізнати короткий дотик як звичайний
-//    клік і перевернути картку під пером, або (б) почати виділення
-//    тексту / показ лупи, перш ніж малювання встигало "перехопити"
-//    жест. Тепер, поки ввімкнено ручку, жоден тап пером не проходить
-//    до карток/кнопок і не викликає виділення — весь дотик належить
-//    малюванню. Палець і миша, як і раніше, не чіпаються.
-// 4) На додачу до preventDefault вимикається user-select/touch-callout
-//    на весь час малювання — це прибирає "то виділяє" навіть у
-//    браузерах, де власний жест виділення встигає стартувати раніше
-//    за наш обробник.
-// 5) Панель кольорів можна ЗГОРНУТИ (кнопка з галочкою), не вимикаючи
-//    саме малювання — прапорець drawingActive від цього не міняється,
-//    тож писати можна і зі згорнутою панеллю.
-// 6) Кругла кнопка та панель тепер підлаштовуються під видиму (візуальну)
-//    область через visualViewport API — раніше під час pinch-zoom вони
-//    лишались "приклеєні" до нез'їзумленої версії сторінки і фактично
-//    виїжджали за межі видимого екрана (типова поведінка position:fixed
-//    в Safari на iOS при масштабуванні).
+// АРХІТЕКТУРА (векторні штрихи, а не пікселі):
+// Кожен мазок пера зберігається як ОБ'ЄКТ { color, points:[{x,y,w},...] },
+// а не одразу "запікається" в растр. Це дає дві речі, які раніше були
+// неможливі:
+//   1) Ластик може стерти ОДИН ЦІЛИЙ ШТРИХ одним дотиком (== "стерти
+//      слово"), а не тільки протирати піксель за пікселем.
+//   2) Малювання на картці зберігається окремо для переднього і заднього
+//      боку і показується лише тоді, коли цей бік справді відкритий —
+//      перевертання картки більше не "просвічує" один запис крізь інший.
+//
+// Є два незалежних "полотна":
+//   • сторінкове (canvas #drawCanvas) — на все, що НЕ картка-перевертайка
+//     (таблиці, чипи, тест, порожній фон);
+//   • по одному маленькому canvas.card-ink на кожній картці — не бере
+//     участі у 3D-повороті картки, тому лишається рівним, а його вміст
+//     JS підміняє на "передній" або "задній" запис при кліку на картку.
 // ======================================================================
 (function(){
   const canvas = document.getElementById('drawCanvas');
@@ -862,6 +872,7 @@ renderAll();
   const toolbar = document.getElementById('drawToolbar');
   const toolbarMini = document.getElementById('drawToolbarMini');
   const minimizeBtn = document.getElementById('minimizeBtn');
+  const xthinBtn = document.getElementById('xthinBtn');
   const thinBtn = document.getElementById('thinBtn');
   const thickBtn = document.getElementById('thickBtn');
   const eraserBtn = document.getElementById('eraserBtn');
@@ -871,12 +882,30 @@ renderAll();
   let drawingActive = false;
   let isDrawing = false;
   let minimized = false;
-  let currentColor = "#E5484D";
-  let currentWidth = 4;
+  let currentColor = "#F5304A";
+  let currentWidth = 2;         // за замовчуванням — тонкий, як просили
   let eraserMode = false;
   let lastX = 0, lastY = 0;
   let strokeMoved = false;
-  const MOVE_THRESHOLD = 2; // px — щоб дрібне тремтіння пера не рвало лінію на сегменти
+  const MOVE_THRESHOLD = 0.4;   // px — майже без фільтра
+  const ERASE_RADIUS = 20;      // px — наскільки близько треба торкнутись штриха, щоб стерти його цілком
+
+  // ---- сторінкові штрихи (усе, що НЕ на картці), по одному списку на вкладку ----
+  const pageStrokeStore = {};   // sectionKey -> [strokes]
+  let pageStrokes = pageStrokeStore[sectionKey()] || (pageStrokeStore[sectionKey()] = []);
+
+  // ---- штрихи на картках: cardKey -> { front:[strokes], back:[strokes] } ----
+  const cardStore = {};
+  const cardCanvasMap = new Map(); // елемент .flip -> {canvas, ctx, key}
+
+  // ---- стан поточного мазка (спільний для сторінки й картки) ----
+  let activeMode = 'page';       // 'page' | 'card'
+  let activeCtx = ctx;
+  let activeCanvas = canvas;
+  let activeStrokesArrRef = pageStrokes;
+  let activeCardRect = null;     // getBoundingClientRect() картки на момент pointerdown
+  let currentStroke = null;
+  let suppressNextClick = false; // блокує клік-подію, яку міг спричинити дотик пером
 
   function docSize(){
     return {
@@ -885,18 +914,42 @@ renderAll();
     };
   }
 
+  // ---- малювання одного штриха повністю (використовується і для
+  // сторінки, і для карток — targetCtx передається окремо) ----
+  function drawStrokeFull(targetCtx, s){
+    if(!s.points || !s.points.length) return;
+    targetCtx.strokeStyle = s.color;
+    targetCtx.fillStyle = s.color;
+    if(s.points.length === 1){
+      targetCtx.beginPath();
+      targetCtx.arc(s.points[0].x, s.points[0].y, (s.points[0].w || currentWidth) / 2, 0, Math.PI*2);
+      targetCtx.fill();
+      return;
+    }
+    for(let i=1;i<s.points.length;i++){
+      targetCtx.beginPath();
+      targetCtx.moveTo(s.points[i-1].x, s.points[i-1].y);
+      targetCtx.lineTo(s.points[i].x, s.points[i].y);
+      targetCtx.lineWidth = s.points[i].w || currentWidth;
+      targetCtx.stroke();
+    }
+  }
+
+  function clearAndReplay(targetCtx, targetCanvas, strokesArr){
+    targetCtx.save();
+    targetCtx.setTransform(1,0,0,1,0,0);
+    targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    targetCtx.restore();
+    strokesArr.forEach(s => drawStrokeFull(targetCtx, s));
+  }
+
+  function redrawPageCanvasFull(){
+    clearAndReplay(ctx, canvas, pageStrokes);
+  }
+
   function resizeCanvas(){
     const dpr = window.devicePixelRatio || 1;
     const {w, h} = docSize();
-
-    // зберігаємо вже намальоване
-    const prev = document.createElement('canvas');
-    prev.width = canvas.width;
-    prev.height = canvas.height;
-    if(canvas.width && canvas.height){
-      prev.getContext('2d').drawImage(canvas, 0, 0);
-    }
-
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
     canvas.width = Math.max(1, Math.round(w * dpr));
@@ -904,36 +957,74 @@ renderAll();
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-
-    if(prev.width && prev.height){
-      ctx.drawImage(prev, 0, 0, prev.width / dpr, prev.height / dpr);
-    }
+    redrawPageCanvasFull();
   }
   window.resizeDrawCanvas = resizeCanvas;
   resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('orientationchange', ()=> setTimeout(resizeCanvas, 200));
+  window.addEventListener('resize', ()=>{ resizeCanvas(); window.setupCardInk && window.setupCardInk(); });
+  window.addEventListener('orientationchange', ()=> setTimeout(()=>{ resizeCanvas(); window.setupCardInk && window.setupCardInk(); }, 200));
   window.addEventListener('load', resizeCanvas);
 
   window.clearDrawing = function(){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pageStrokes.length = 0;
+    redrawPageCanvasFull();
   };
 
-  // ---- знімок малюнка для збереження/відновлення per-вкладка ----
+  // ---- сумісний з попередньою версією "знімок" API: тепер це не dataURL
+  // растру, а JSON-масив векторних штрихів поточної вкладки ----
   window.getDrawingSnapshot = function(){
-    try{
-      return (canvas.width && canvas.height) ? canvas.toDataURL('image/png') : null;
-    }catch(e){ return null; }
+    return JSON.stringify(pageStrokes);
   };
-  window.setDrawingSnapshot = function(dataURL){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if(!dataURL) return;
-    const img = new Image();
-    img.onload = function(){
-      const d = window.devicePixelRatio || 1;
-      ctx.drawImage(img, 0, 0, canvas.width / d, canvas.height / d);
-    };
-    img.src = dataURL;
+  window.setDrawingSnapshot = function(json){
+    let arr = [];
+    if(json){
+      try{ arr = JSON.parse(json) || []; }catch(e){ arr = []; }
+    }
+    pageStrokeStore[sectionKey()] = arr;
+    pageStrokes = arr;
+    activeStrokesArrRef = pageStrokes;
+    redrawPageCanvasFull();
+  };
+
+  // ---- запис на картках: створення/оновлення шару під конкретну картку ----
+  // Викликається після кожного renderContent() (нові картки в DOM) і після
+  // resize/orientationchange (розмір картки міг змінитись). Ідемпотентно:
+  // якщо canvas на картці вже є — просто перераховує розмір і перемальовує.
+  window.setupCardInk = function(){
+    document.querySelectorAll('.flip[data-card-key]').forEach(el=>{
+      const key = el.dataset.cardKey;
+      const entry = cardStore[key] || (cardStore[key] = {front: [], back: []});
+      let cnv = el.querySelector('canvas.card-ink');
+      if(!cnv){
+        cnv = document.createElement('canvas');
+        cnv.className = 'card-ink';
+        el.appendChild(cnv);
+      }
+      const rect = el.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      cnv.width = Math.max(1, Math.round(rect.width * dpr));
+      cnv.height = Math.max(1, Math.round(rect.height * dpr));
+      cnv.style.width = rect.width + 'px';
+      cnv.style.height = rect.height + 'px';
+      const cctx = cnv.getContext('2d');
+      cctx.setTransform(dpr,0,0,dpr,0,0);
+      cctx.lineCap = 'round';
+      cctx.lineJoin = 'round';
+      cardCanvasMap.set(el, {canvas: cnv, ctx: cctx, key});
+      const face = el.classList.contains('open') ? 'back' : 'front';
+      clearAndReplay(cctx, cnv, entry[face]);
+    });
+  };
+
+  // Викликається після toggle('open') на картці — підміняє видимий шар
+  // так, щоб запис лишався прив'язаним саме до того боку, на якому його
+  // написали, а не "проступав" на іншому боці.
+  window.onCardFlip = function(el){
+    const info = cardCanvasMap.get(el);
+    if(!info) return;
+    const entry = cardStore[info.key] || (cardStore[info.key] = {front: [], back: []});
+    const face = el.classList.contains('open') ? 'back' : 'front';
+    clearAndReplay(info.ctx, info.canvas, entry[face]);
   };
 
   function setActive(on){
@@ -945,39 +1036,37 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    // поки малюємо — блокуємо однопальцеве прокручування (щоб долоня,
-    // яка спирається на екран, не "їхала" сторінкою), але лишаємо
-    // pinch-zoom доступним для збільшення двома пальцями
-    const ta = on ? 'pinch-zoom' : 'auto';
-    document.documentElement.style.touchAction = ta;
-    document.body.style.touchAction = ta;
-    // прибираємо виділення тексту/лупу на весь час малювання —
-    // це і є фікс для "то виділяє"
+    // поки малюємо — повністю блокуємо зумування (в т.ч. в дочірніх
+    // елементах через клас нижче): дотик пером поза білою карткою раніше
+    // міг випадково зменшити/збільшити масштаб сторінки
+    document.body.classList.toggle('drawing-lock', on);
+    document.documentElement.style.touchAction = on ? 'none' : 'auto';
+    document.body.style.touchAction = on ? 'none' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
     document.body.style.webkitUserSelect = on ? 'none' : '';
     document.documentElement.style.userSelect = on ? 'none' : '';
     document.body.style.userSelect = on ? 'none' : '';
     document.body.style.webkitTouchCallout = on ? 'none' : '';
-    if(on) resizeCanvas();
+    if(on){ resizeCanvas(); window.setupCardInk && window.setupCardInk(); }
     if(on) positionFixedUI();
   }
 
   toggleBtn.addEventListener('click', ()=> setActive(!drawingActive));
 
-  // Згорнути/розгорнути панель кольорів — саме малювання (drawingActive)
-  // при цьому НЕ вимикається, писати можна і зі згорнутою панеллю.
-  minimizeBtn.addEventListener('click', ()=>{
+  function minimizeToolbar(){
     minimized = true;
     toolbar.classList.remove('show');
     toolbar.classList.add('mini');
     toolbarMini.classList.add('show');
-  });
-  toolbarMini.addEventListener('click', ()=>{
+  }
+  function expandToolbar(){
     minimized = false;
     toolbar.classList.remove('mini');
     toolbar.classList.add('show');
     toolbarMini.classList.remove('show');
-  });
+  }
+  minimizeBtn.addEventListener('click', minimizeToolbar);
+  toolbarMini.addEventListener('click', expandToolbar);
 
   swatches.forEach(sw=>{
     sw.addEventListener('click', ()=>{
@@ -989,16 +1078,15 @@ renderAll();
     });
   });
 
-  thinBtn.addEventListener('click', ()=>{
-    currentWidth = 4;
-    thinBtn.classList.add('selected');
-    thickBtn.classList.remove('selected');
-  });
-  thickBtn.addEventListener('click', ()=>{
-    currentWidth = 12;
-    thickBtn.classList.add('selected');
-    thinBtn.classList.remove('selected');
-  });
+  function selectWidth(btn, width){
+    [xthinBtn, thinBtn, thickBtn].forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    currentWidth = width;
+  }
+  xthinBtn.addEventListener('click', ()=> selectWidth(xthinBtn, 2));
+  thinBtn.addEventListener('click', ()=> selectWidth(thinBtn, 5));
+  thickBtn.addEventListener('click', ()=> selectWidth(thickBtn, 11));
+
   eraserBtn.addEventListener('click', ()=>{
     eraserMode = !eraserMode;
     eraserBtn.classList.toggle('selected', eraserMode);
@@ -1007,91 +1095,199 @@ renderAll();
     window.clearDrawing();
   });
 
-  function pointerPos(e){
-    // pageX/pageY вже враховують прокрутку — збігаються з координатами
-    // канвасу, який стоїть у потоці документа
-    return { x: e.pageX, y: e.pageY, pressure: e.pressure || 0.5 };
-  }
-
   function isPen(e){ return e.pointerType === 'pen'; }
 
-  function dot(x, y){
-    ctx.globalCompositeOperation = eraserMode ? 'destination-out' : 'source-over';
-    ctx.fillStyle = currentColor;
-    const r = (eraserMode ? currentWidth * 3 : currentWidth) / 2;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+  // координати дотику в системі координат ПОТОЧНОГО полотна: сторінкові
+  // (pageX/pageY) для сторінки, або локальні відносно картки для картки
+  function localPoint(ev){
+    if(activeMode === 'card' && activeCardRect){
+      return { x: ev.clientX - activeCardRect.left, y: ev.clientY - activeCardRect.top, pressure: ev.pressure || 0.5 };
+    }
+    return { x: ev.pageX, y: ev.pageY, pressure: ev.pressure || 0.5 };
   }
 
-  // pointerdown ЗАВЖДИ викликає preventDefault, поки ввімкнено малювання:
-  // це і є фікс "перевертає картку / виділяє текст, коли пишу" — жодного
-  // кліку чи жесту виділення до елементів під пером більше не доходить,
-  // весь дотик пером повністю належить канвасу для малювання.
+  function dot(x, y, w){
+    activeCtx.fillStyle = currentColor;
+    activeCtx.beginPath();
+    activeCtx.arc(x, y, (w || currentWidth) / 2, 0, Math.PI*2);
+    activeCtx.fill();
+  }
+
+  // ---- пакетне малювання: чекаємо кадр (rAF) і малюємо всі точки, що
+  // накопичились, за раз — стійко навіть коли частина raw-подій губиться
+  // під навантаженням (напр. під час запису екрана) ----
+  let pendingPoints = [];
+  let rafScheduled = false;
+  function flushPending(){
+    rafScheduled = false;
+    if(pendingPoints.length === 0) return;
+    activeCtx.strokeStyle = currentColor;
+    activeCtx.beginPath();
+    activeCtx.moveTo(lastX, lastY);
+    for(const p of pendingPoints){
+      const pressureFactor = 0.6 + (p.pressure || 0.5) * 0.8;
+      const w = currentWidth * pressureFactor;
+      activeCtx.lineWidth = w;
+      activeCtx.lineTo(p.x, p.y);
+      activeCtx.stroke();
+      activeCtx.beginPath();
+      activeCtx.moveTo(p.x, p.y);
+      if(currentStroke) currentStroke.points.push({x: p.x, y: p.y, w});
+      lastX = p.x; lastY = p.y;
+      strokeMoved = true;
+    }
+    pendingPoints = [];
+  }
+  function scheduleFlush(){
+    if(rafScheduled) return;
+    rafScheduled = true;
+    requestAnimationFrame(flushPending);
+  }
+
+  // ---- ластик "цілим словом": видаляє з масиву штрихів той, до чийого
+  // будь-якого запам'ятованого пункту дотик пера підійшов ближче за
+  // ERASE_RADIUS, і одразу перемальовує полотно без нього ----
+  function strokeHit(s, x, y){
+    for(const p of s.points){
+      if(Math.hypot(p.x - x, p.y - y) <= ERASE_RADIUS) return true;
+    }
+    return false;
+  }
+  function eraseAt(x, y){
+    if(!activeStrokesArrRef || !activeStrokesArrRef.length) return;
+    let changed = false;
+    for(let i=activeStrokesArrRef.length-1; i>=0; i--){
+      if(strokeHit(activeStrokesArrRef[i], x, y)){
+        activeStrokesArrRef.splice(i,1);
+        changed = true;
+      }
+    }
+    if(changed) clearAndReplay(activeCtx, activeCanvas, activeStrokesArrRef);
+  }
+
   window.addEventListener('pointerdown', (e)=>{
     if(!drawingActive || !isPen(e)) return;
     e.preventDefault();
+    suppressNextClick = true; // не дати цьому ж дотику перевернути картку/вибрати відповідь тощо
+    // якщо реального "примарного" кліку від цього дотику так і не станеться
+    // (напр. писали просто по фону, не над карткою чи кнопкою) — знімаємо
+    // прапорець самі за 350мс, інакше він міг би випадково "зʼїсти" зовсім
+    // інший, наступний тап пальцем по панелі інструментів
+    setTimeout(()=>{ suppressNextClick = false; }, 350);
     isDrawing = true;
     strokeMoved = false;
-    const p = pointerPos(e);
+    pendingPoints = [];
+
+    const cardEl = e.target && e.target.closest ? e.target.closest('.flip') : null;
+    if(cardEl){
+      window.setupCardInk && window.setupCardInk(); // на випадок, якщо канвас на картці ще не створено
+      const info = cardCanvasMap.get(cardEl);
+      activeMode = 'card';
+      activeCardRect = cardEl.getBoundingClientRect();
+      activeCtx = info ? info.ctx : ctx;
+      activeCanvas = info ? info.canvas : canvas;
+      const face = cardEl.classList.contains('open') ? 'back' : 'front';
+      const entry = cardStore[cardEl.dataset.cardKey] || (cardStore[cardEl.dataset.cardKey] = {front:[], back:[]});
+      activeStrokesArrRef = entry[face];
+    } else {
+      activeMode = 'page';
+      activeCardRect = null;
+      activeCtx = ctx;
+      activeCanvas = canvas;
+      activeStrokesArrRef = pageStrokes;
+    }
+
+    const p = localPoint(e);
     lastX = p.x; lastY = p.y;
+
+    if(eraserMode){
+      currentStroke = null;
+      eraseAt(lastX, lastY);
+    } else {
+      currentStroke = { color: currentColor, points: [{x:lastX, y:lastY, w: currentWidth*0.8}] };
+    }
   }, {passive:false});
 
   window.addEventListener('pointermove', (e)=>{
     if(!drawingActive || !isDrawing || !isPen(e)) return;
     e.preventDefault();
-    const p = pointerPos(e);
-    const dx = p.x - lastX, dy = p.y - lastY;
-    if(Math.hypot(dx,dy) < MOVE_THRESHOLD) return;
-    strokeMoved = true;
-    ctx.globalCompositeOperation = eraserMode ? 'destination-out' : 'source-over';
-    ctx.strokeStyle = currentColor;
-    const pressureFactor = 0.6 + (p.pressure || 0.5) * 0.8;
-    ctx.lineWidth = (eraserMode ? currentWidth * 3 : currentWidth) * pressureFactor;
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    lastX = p.x; lastY = p.y;
+    const events = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length)
+      ? e.getCoalescedEvents()
+      : [e];
+    for(const ev of events){
+      const p = localPoint(ev);
+      if(eraserMode){
+        eraseAt(p.x, p.y);
+        lastX = p.x; lastY = p.y;
+        continue;
+      }
+      const dx = p.x - lastX, dy = p.y - lastY;
+      if(Math.hypot(dx,dy) < MOVE_THRESHOLD) continue;
+      pendingPoints.push(p);
+    }
+    if(!eraserMode) scheduleFlush();
   }, {passive:false});
 
   function stopDrawing(e){
-    // короткий дотик пером без руху (наприклад, крапка над "і") —
-    // раніше просто зникав, бо чекав на реальний рух. Тепер лишає крапку.
-    if(isDrawing && !strokeMoved && isPen(e)){
-      dot(lastX, lastY);
+    if(!isPen(e)) return;
+    flushPending();
+    if(!eraserMode && currentStroke){
+      if(!strokeMoved){
+        dot(currentStroke.points[0].x, currentStroke.points[0].y, currentStroke.points[0].w);
+      }
+      if(activeStrokesArrRef) activeStrokesArrRef.push(currentStroke);
     }
+    currentStroke = null;
     isDrawing = false;
   }
   window.addEventListener('pointerup', stopDrawing);
   window.addEventListener('pointercancel', stopDrawing);
 
-  // ---- утримання кнопки/панелі малювання у ВИДИМІЙ (візуальній) області ----
-  // Раніше вони мали position:fixed відносно нез'юмленого layout viewport,
-  // тож під час pinch-zoom (і після панорамування зумленою сторінкою)
-  // фізично опинялися за межами того, що людина бачить на екрані —
-  // тобто "зникали". Тепер стежимо за visualViewport і підтягуємо їх
-  // всередину видимої зони, компенсуючи масштаб, щоб розмір не "плив".
+  // клік, який пен міг би спричинити (перевернути картку, вибрати
+  // відповідь тесту тощо), гаситься тут — АЛЕ лише той один клік, що йде
+  // одразу за дотиком пером; звичайні дотики пальцем по панелі
+  // інструментів (колір/товщина/ластик) під це не підпадають, бо для них
+  // suppressNextClick ніколи не виставляється
+  window.addEventListener('click', function(e){
+    if(suppressNextClick){
+      e.preventDefault();
+      e.stopPropagation();
+      suppressNextClick = false;
+    }
+  }, true);
+
+  // ---- утримання круглої кнопки й панелі кольорів у видимій (масштабованій)
+  // області екрана, з компенсацією самого масштабу ----
   function positionFixedUI(){
     const vv = window.visualViewport;
     if(!vv || !drawingActive) return;
+    const scale = vv.scale || 1;
+    const inv = 1 / scale;
     const visRight = vv.offsetLeft + vv.width;
     const visBottom = vv.offsetTop + vv.height;
     const visCenterX = vv.offsetLeft + vv.width / 2;
 
-    // кругла кнопка — прив'язуємо до правого нижнього кута ВИДИМОЇ
-    // (візуальної, зумленої) області, а не всієї нез'юмленої сторінки
     toggleBtn.style.right = 'auto';
     toggleBtn.style.bottom = 'auto';
     toggleBtn.style.left = (visRight - 20 - 58) + 'px';
     toggleBtn.style.top = (visBottom - 20 - 58) + 'px';
+    // zoom (не transform!) компенсує роздування фіксованих елементів під
+    // час pinch-zoom, не заважаючи анімації показу/приховування панелі,
+    // яка керується через transform у CSS-класах
+    toggleBtn.style.zoom = inv;
 
-    // панель кольорів і згорнута кнопка — центруємо по видимій ширині,
-    // CSS далі сам відповідає за translateX(-50%) та анімацію показу
     [toolbar, toolbarMini].forEach(el=>{
       el.style.left = visCenterX + 'px';
       el.style.bottom = (window.innerHeight - visBottom + 22) + 'px';
+      el.style.zoom = inv;
     });
+
+    // якщо користувач збільшив масштаб сторінки, поки панель кольорів
+    // розгорнута — згортаємо її самі, щоб вона не "роздувалась" разом
+    // з рештою сторінки; лишається лише кругла піктограма з кольором
+    if(scale > 1.08 && !minimized && toolbar.classList.contains('show')){
+      minimizeToolbar();
+    }
   }
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', positionFixedUI);
