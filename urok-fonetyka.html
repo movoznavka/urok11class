@@ -640,12 +640,13 @@ function renderTopics(){
     <button class="${key===activeTopic?'active':''}" data-key="${key}">${TOPICS[key].label}</button>
   `).join('');
   topictoggle.querySelectorAll('button').forEach(btn=>{
-    btn.onclick = ()=>{
+    const nav = ()=>{
       saveCurrentDrawing();
       activeTopic = btn.dataset.key;
       resetNav();
       renderAll();
     };
+    attachTapToggle(btn, nav);
   });
 }
 
@@ -656,13 +657,14 @@ function renderSubs(){
       <span class="dot">${s.dot}</span>${s.tab}
     </button>`).join('');
   subtabbar.querySelectorAll('.tab').forEach(btn=>{
-    btn.onclick = ()=>{
+    const nav = ()=>{
       saveCurrentDrawing();
       activeSub = +btn.dataset.i;
       activeSubsub = 0;
       resetQuiz();
       renderAll();
     };
+    attachTapToggle(btn, nav);
   });
 }
 
@@ -675,13 +677,14 @@ function renderSubSubs(){
       <span class="dot">${s.dot}</span>${s.tab}
     </button>`).join('');
   subsubtabbar.querySelectorAll('.tab').forEach(btn=>{
-    btn.onclick = ()=>{
+    const nav = ()=>{
       saveCurrentDrawing();
       activeSubsub = +btn.dataset.i;
       resetQuiz();
       renderSubSubs();
       renderContent();
     };
+    attachTapToggle(btn, nav);
   });
 }
 
@@ -732,7 +735,7 @@ function renderContent(){
   lessonArea.innerHTML = html;
   lessonArea.querySelectorAll('[data-kind="card"], [data-kind="chip"], [data-kind="row"]').forEach(el=>{
     const toggle = ()=>{ el.classList.toggle('open'); };
-    if(window.attachTapToggle) window.attachTapToggle(el, toggle); else el.onclick = toggle;
+    attachTapToggle(el, toggle);
   });
   syncCanvasAfterRender();
 }
@@ -767,7 +770,7 @@ function renderQuiz(s){
         <button class="btn primary" id="quizRestart" style="margin-top:6px;">Пройти ще раз</button>
       </div>`;
     lessonArea.appendChild(extra);
-    document.getElementById('quizRestart').onclick = ()=>{ resetQuiz(); renderContent(); };
+    attachTapToggle(document.getElementById('quizRestart'), ()=>{ resetQuiz(); renderContent(); });
     return;
   }
 
@@ -803,18 +806,17 @@ function renderQuiz(s){
   }
 
   box.querySelectorAll('.opt').forEach(btn=>{
-    const toggle = ()=>{
+    attachTapToggle(btn, ()=>{
       if(quizAnswers[quizIdx]) return;
       const picked = +btn.dataset.i;
       quizAnswers[quizIdx] = {picked, correct: picked===q.a};
       renderContent();
-    };
-    if(window.attachTapToggle) window.attachTapToggle(btn, toggle); else btn.onclick = toggle;
+    });
   });
   const prevBtn = document.getElementById('quizPrev');
   const nextBtn = document.getElementById('quizNext');
-  if(prevBtn) prevBtn.onclick = ()=>{ saveCurrentDrawing(); quizIdx--; renderContent(); };
-  if(nextBtn) nextBtn.onclick = ()=>{ saveCurrentDrawing(); quizIdx++; renderContent(); };
+  if(prevBtn) attachTapToggle(prevBtn, ()=>{ saveCurrentDrawing(); quizIdx--; renderContent(); });
+  if(nextBtn) attachTapToggle(nextBtn, ()=>{ saveCurrentDrawing(); quizIdx++; renderContent(); });
 }
 
 // ---- надійне розпізнавання "тапу", яке не залежить від click-події
@@ -933,6 +935,11 @@ renderAll();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
     strokes.forEach(drawStrokeFull);
+    // якщо ця функція раптом викликається ПОСЕРЕД мазка (напр. відкладений
+    // resize, що таки спрацював одразу після підняття пера) — мазок, який
+    // ще не потрапив у "strokes", теж домальовуємо, щоб він візуально не
+    // зникав ні за яких обставин
+    if(currentStroke) drawStrokeFull(currentStroke);
   }
 
   function resizeCanvas(){
@@ -951,10 +958,18 @@ renderAll();
   resizeCanvas();
   // ВАЖЛИВО: якщо resize спрацює ПОКИ триває мазок пера (на iOS таке
   // трапляється, коли під час скролу ховається/зʼявляється панель адреси),
-  // не чіпаємо полотно — інакше щойно намальований, але ще не збережений у
-  // "strokes" шматок лінії просто зникає. Дочекаємось підняття пера.
-  window.addEventListener('resize', ()=>{ if(!isDrawing) resizeCanvas(); });
-  window.addEventListener('orientationchange', ()=> setTimeout(()=>{ if(!isDrawing) resizeCanvas(); }, 200));
+  // відкладаємо саму зміну розміру до підняття пера (щоб не смикати полотно
+  // просто в процесі письма), але НЕ губимо подію — вона виконається одразу
+  // після stopDrawing(). redrawAll() вище й так намальовує поточний мазок,
+  // тож навіть якби ми не відкладали, лінія б не зникла — це подвійний
+  // захист.
+  let resizePending = false;
+  function handleResize(){
+    if(isDrawing){ resizePending = true; return; }
+    resizeCanvas();
+  }
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', ()=> setTimeout(handleResize, 200));
   window.addEventListener('load', resizeCanvas);
 
   window.clearDrawing = function(){
@@ -986,7 +1001,7 @@ renderAll();
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
     // поки малюємо — блокуємо однопальцеве смикання і подвійний тап (щоб
     // випадковий дотик долонею не гортав сторінку), але двома пальцями
-    // масштабувати можна й далі — це окремий жест, який пер}у не заважає
+    // масштабувати можна й далі — це окремий жест, який перу не заважає
     document.documentElement.style.touchAction = on ? 'pinch-zoom' : 'auto';
     document.body.style.touchAction = on ? 'pinch-zoom' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
@@ -997,6 +1012,61 @@ renderAll();
     if(on) resizeCanvas();
   }
   toggleBtn.addEventListener('click', ()=> setActive(!drawingActive));
+
+  // ======================================================================
+  // Утримання кнопки-олівця й панелі кольорів у видимій області під час
+  // pinch-zoom. Кнопка/панель — звичайний CSS position:fixed, а це на iOS
+  // Safari прив'язується до НЕзумленого шару сторінки: коли зумиш вміст,
+  // фіксовані елементи можуть виїхати за межі того, що видно на екрані
+  // (класична поведінка Safari). Тому тут — ТІЛЬКИ позиція (без зміни
+  // розміру: спроба компенсувати сам масштаб через "zoom" минулого разу
+  // спричиняла глюки панелі через важкий backdrop-filter). Порахований
+  // зсув застосовується лише коли він реально змінився, і не частіше разу
+  // на кадр — це і усуває "зникання", і не смикає панель дарма.
+  // ======================================================================
+  let lastVVKey = '';
+  function repositionForZoom(){
+    const vv = window.visualViewport;
+    if(!vv) return;
+    const dx = Math.round(vv.offsetLeft + vv.width - window.innerWidth);
+    const dy = Math.round(vv.offsetTop + vv.height - window.innerHeight);
+    const key = dx + ',' + dy;
+    if(key === lastVVKey) return; // нічого не змінилось — не чіпаємо стилі дарма
+    lastVVKey = key;
+    if(dx === 0 && dy === 0){
+      // не в режимі зуму (або зум щойно скинуто) — повертаємо звичайні
+      // значення з CSS, JS більше нічого не нав'язує
+      toggleBtn.style.right = '';
+      toggleBtn.style.bottom = '';
+      toolbar.style.left = '';
+      toolbar.style.bottom = '';
+      toolbarMini.style.left = '';
+      toolbarMini.style.bottom = '';
+    } else {
+      // ВАЖЛИВО: рухаємо ЛИШЕ right/bottom/left — жодного transform, бо
+      // transform на toolbar/toolbarMini відповідає за центрування
+      // (translateX(-50%)) і за саму анімацію показу/приховування; якщо
+      // замінити його тут, панель або зламає центрування, або "застрягне"
+      // видимою/прихованою. right/bottom/left можна міняти вільно — вони
+      // лише зсувають точку, відносно якої CSS далі малює transform.
+      toggleBtn.style.right = (20 - dx) + 'px';
+      toggleBtn.style.bottom = (20 - dy) + 'px';
+      toolbar.style.left = (vv.offsetLeft + vv.width/2) + 'px';
+      toolbar.style.bottom = (22 - dy) + 'px';
+      toolbarMini.style.left = (vv.offsetLeft + vv.width/2) + 'px';
+      toolbarMini.style.bottom = (20 - dy) + 'px';
+    }
+  }
+  let vvRafScheduled = false;
+  function scheduleReposition(){
+    if(vvRafScheduled) return;
+    vvRafScheduled = true;
+    requestAnimationFrame(()=>{ vvRafScheduled = false; repositionForZoom(); });
+  }
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', scheduleReposition);
+    window.visualViewport.addEventListener('scroll', scheduleReposition);
+  }
 
   minimizeBtn.addEventListener('click', ()=>{
     toolbar.classList.remove('show');
@@ -1121,6 +1191,7 @@ renderAll();
     }
     currentStroke = null;
     isDrawing = false;
+    if(resizePending){ resizePending = false; resizeCanvas(); }
   }
   window.addEventListener('pointerup', stopDrawing);
   window.addEventListener('pointercancel', stopDrawing);
