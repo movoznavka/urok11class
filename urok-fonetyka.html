@@ -24,6 +24,8 @@
     --correct-ink:#128A54;
     --wrong-bg:#FDECEC;
     --wrong-ink:#D8393E;
+
+    --zoom-comp: 1;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -238,6 +240,8 @@
     justify-content:center;
     cursor:pointer;
     z-index:9999;
+    transform-origin: bottom right;
+    transform: scale(var(--zoom-comp));
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .2s ease, box-shadow .2s ease;
   }
   #drawToggleBtn svg{
@@ -245,7 +249,7 @@
     display:block;
     transition:transform .25s ease, opacity .15s ease;
   }
-  #drawToggleBtn:active{transform:scale(0.90);}
+  #drawToggleBtn:active{transform:scale(calc(0.90 * var(--zoom-comp)));}
   #drawToggleBtn.on{
     background:
       linear-gradient(150deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
@@ -261,7 +265,8 @@
     position:fixed;
     left:50%;
     bottom:22px;
-    transform:translateX(-50%) translateY(130%) scale(0.94);
+    transform:translateX(-50%) translateY(130%) scale(calc(0.94 * var(--zoom-comp)));
+    transform-origin: bottom center;
     opacity:0;
     display:flex;
     align-items:center;
@@ -281,13 +286,13 @@
     pointer-events:none;
   }
   #drawToolbar.show{
-    transform:translateX(-50%) translateY(0) scale(1);
+    transform:translateX(-50%) translateY(0) scale(var(--zoom-comp));
     opacity:1;
     pointer-events:auto;
   }
   /* панель згорнута, але малювання лишається увімкненим */
   #drawToolbar.mini{
-    transform:translateX(-50%) translateY(130%) scale(0.94);
+    transform:translateX(-50%) translateY(130%) scale(calc(0.94 * var(--zoom-comp)));
     opacity:0;
     pointer-events:none;
   }
@@ -295,7 +300,8 @@
     position:fixed;
     left:50%;
     bottom:20px;
-    transform:translateX(-50%) translateY(130%) scale(0.9);
+    transform:translateX(-50%) translateY(130%) scale(calc(0.9 * var(--zoom-comp)));
+    transform-origin: bottom center;
     opacity:0;
     width:40px;height:26px;
     border-radius:14px;
@@ -310,7 +316,7 @@
   }
   #drawToolbarMini svg{width:18px;height:18px;}
   #drawToolbarMini.show{
-    transform:translateX(-50%) translateY(0) scale(1);
+    transform:translateX(-50%) translateY(0) scale(var(--zoom-comp));
     opacity:1;
     pointer-events:auto;
   }
@@ -860,24 +866,6 @@ renderAll();
 
 // ======================================================================
 // МАЛЮВАННЯ ПОВЕРХ ЕКРАНА (режим "учитель")
-//
-// Ця версія навмисно ПРОСТІША за попередню. Кожне попереднє "покращення"
-// (окреме чорнило на кожному боці картки, компенсація масштабу для кнопки
-// й панелі, гасіння кліку через таймер) додавало власний клас багів:
-// панель "губилася" при зумі, кнопка "тікала" не в той кут, картки й далі
-// перевертались, бо 300мс затримка кліку в Safari іноді довша за наш
-// таймер. Тому тут:
-//   • ОДНЕ спільне полотно на всю сторінку (в т.ч. поверх карток) —
-//     менше рухомих частин, менше місць для помилки;
-//   • перевертання картки більше НЕ залежить від того, чи встигне
-//     браузер сам згенерувати/скасувати клік — ми самі відстежуємо
-//     послідовність "дотик пальцем без зсуву" через pointerdown/pointerup
-//     і повністю ігноруємо перо, поки ввімкнено малювання;
-//   • кнопка й панель кольорів — звичайний CSS position:fixed, без жодного
-//     JS-перерахунку позиції під час зуму. Це означає, що під час
-//     збільшення вони поводяться як практично будь-який інший сайт (можуть
-//     трохи змінювати видиме положення разом зі сторінкою), але НІКОЛИ не
-//     зникають і не "тікають" — а це важливіше.
 // ======================================================================
 (function(){
   const canvas = document.getElementById('drawCanvas');
@@ -953,10 +941,6 @@ renderAll();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
     strokes.forEach(s=>{ if(strokeVisible(s)) drawStrokeFull(s); });
-    // якщо ця функція раптом викликається ПОСЕРЕД мазка (напр. відкладений
-    // resize, що таки спрацював одразу після підняття пера) — мазок, який
-    // ще не потрапив у "strokes", теж домальовуємо, щоб він візуально не
-    // зникав ні за яких обставин
     if(currentStroke) drawStrokeFull(currentStroke);
   }
 
@@ -975,19 +959,23 @@ renderAll();
   window.resizeDrawCanvas = resizeCanvas;
   window.redrawInk = redrawAll;
   resizeCanvas();
-  // ВАЖЛИВО: якщо resize спрацює ПОКИ триває мазок пера (на iOS таке
-  // трапляється, коли під час скролу ховається/зʼявляється панель адреси),
-  // відкладаємо саму зміну розміру до підняття пера (щоб не смикати полотно
-  // просто в процесі письма), але НЕ губимо подію — вона виконається одразу
-  // після stopDrawing(). redrawAll() вище й так намальовує поточний мазок,
-  // тож навіть якби ми не відкладали, лінія б не зникла — це подвійний
-  // захист.
+
+  // Якщо resize спрацює ПОКИ триває мазок пера — відкладаємо саму зміну
+  // розміру до підняття пера, а звичайні (не-зумові) resize-и додатково
+  // трохи "згладжуємо" в часі (debounce), щоб дрібні коливання висоти
+  // сторінки (напр. поява/зникнення адресного рядка Safari) не викликали
+  // купу підряд важких resizeCanvas()+redrawAll() одразу одне за одним.
   let resizePending = false;
+  let resizeDebounceTimer = null;
   function handleResize(){
     if(isDrawing){ resizePending = true; return; }
     resizeCanvas();
   }
-  window.addEventListener('resize', handleResize);
+  function debouncedHandleResize(){
+    clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(handleResize, 120);
+  }
+  window.addEventListener('resize', debouncedHandleResize);
   window.addEventListener('orientationchange', ()=> setTimeout(handleResize, 200));
   window.addEventListener('load', resizeCanvas);
 
@@ -996,9 +984,6 @@ renderAll();
     redrawAll();
   };
 
-  // сумісний з рештою сторінки API: збереження/відновлення чорнила поточної
-  // вкладки при переключенні між вкладками (викликається з зовнішнього
-  // скрипту через saveCurrentDrawing()/restoreCurrentDrawing())
   window.getDrawingSnapshot = function(){
     return JSON.stringify(strokes);
   };
@@ -1018,13 +1003,6 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    // поки малюємо — товч-екшен ставимо в 'manipulation'. Це не те саме,
-    // що 'none': 'manipulation' явно ДОЗВОЛЯЄ звичний зум двома пальцями
-    // й прокрутку, але при цьому вимикає розпізнавання "подвійного тапу"
-    // (Safari більше не чекає, а раптом це перша половина подвійного
-    // тапу для зуму) — а саме це очікування, судячи з усього, і було
-    // причиною затримки в кілька секунд між буквами. Отже: зум пальцями
-    // працює завжди, і малювання пером — без гальмування.
     document.documentElement.style.touchAction = on ? 'manipulation' : 'auto';
     document.body.style.touchAction = on ? 'manipulation' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
@@ -1037,60 +1015,37 @@ renderAll();
   toggleBtn.addEventListener('click', ()=> setActive(!drawingActive));
 
   // ======================================================================
-  // Утримання кнопки-олівця й панелі кольорів у видимій області під час
-  // pinch-zoom. Кнопка/панель — звичайний CSS position:fixed, а це на iOS
-  // Safari прив'язується до НЕзумленого шару сторінки: коли зумиш вміст,
-  // фіксовані елементи можуть виїхати за межі того, що видно на екрані.
-  // Рахуємо позицію НАПРЯМУ з visualViewport (offsetLeft/offsetTop/width/
-  // height) і РЕАЛЬНОГО розміру самого елемента — без жодних припущень про
-  // те, що window.innerWidth/innerHeight лишаються незмінними під час зуму
-  // (це припущення могло не справджуватись на реальному пристрої, хоч і
-  // виглядало правильним у тестах). ТІЛЬКИ позиція (left/top), transform не
-  // чіпаємо — він відповідає за центрування панелі й анімацію показу.
+  // Стримуємо зростання кнопки й панелі під час pinch-zoom, НЕ чіпаючи їх
+  // позицію. Раніше тут на кожен тик зуму перечитувався
+  // getBoundingClientRect() і перезаписувались left/top — саме це смикало
+  // панель у випадкові місця на екрані (і навіть у середину сторінки) та
+  // зайво навантажувало браузер якраз тоді, коли треба було встигати
+  // малювати. Тепер:
+  //   • позиція кнопки й панелі і далі задається звичайним CSS
+  //     (position:fixed; bottom/right) — саме так браузер сам тримає їх
+  //     прив'язаними до видимої області під час зуму, без жодного JS;
+  //   • єдине, що робить JS — трохи стримує, наскільки сильно вони
+  //     візуально збільшуються, через CSS-змінну --zoom-comp. Це просте
+  //     число, жодних вимірювань розмірів і жодних left/top — тож нічого
+  //     ні "тікати", ні гальмувати малювання більше не може.
   // ======================================================================
-  let lastVVKey = '';
-  function repositionForZoom(){
+  const MAX_VISUAL_GROWTH = 1.25; // дозволяємо трохи побільшати, але не в рази
+  function applyZoomComp(){
     const vv = window.visualViewport;
-    if(!vv) return;
-    const margin = 20;
-
-    const btnRect = toggleBtn.getBoundingClientRect();
-    const btnLeft = Math.round(vv.offsetLeft + vv.width - margin - btnRect.width);
-    const btnTop = Math.round(vv.offsetTop + vv.height - margin - btnRect.height);
-
-    const centerX = Math.round(vv.offsetLeft + vv.width / 2);
-    const toolbarRect = toolbar.getBoundingClientRect();
-    const toolbarTop = Math.round(vv.offsetTop + vv.height - 22 - toolbarRect.height);
-    const miniRect = toolbarMini.getBoundingClientRect();
-    const miniTop = Math.round(vv.offsetTop + vv.height - margin - miniRect.height);
-
-    const key = [btnLeft, btnTop, centerX, toolbarTop, miniTop].join(',');
-    if(key === lastVVKey) return; // нічого не змінилось — не чіпаємо стилі дарма
-    lastVVKey = key;
-
-    toggleBtn.style.right = 'auto';
-    toggleBtn.style.bottom = 'auto';
-    toggleBtn.style.left = btnLeft + 'px';
-    toggleBtn.style.top = btnTop + 'px';
-
-    toolbar.style.bottom = 'auto';
-    toolbar.style.left = centerX + 'px';
-    toolbar.style.top = toolbarTop + 'px';
-
-    toolbarMini.style.bottom = 'auto';
-    toolbarMini.style.left = centerX + 'px';
-    toolbarMini.style.top = miniTop + 'px';
+    const rawScale = (vv && vv.scale) ? vv.scale : 1;
+    const comp = rawScale <= 1 ? 1 : Math.min(1, MAX_VISUAL_GROWTH / rawScale);
+    document.documentElement.style.setProperty('--zoom-comp', comp);
   }
-  let vvRafScheduled = false;
-  function scheduleReposition(){
-    if(vvRafScheduled) return;
-    vvRafScheduled = true;
-    requestAnimationFrame(()=>{ vvRafScheduled = false; repositionForZoom(); });
+  let zoomRaf = false;
+  function scheduleZoomComp(){
+    if(zoomRaf) return;
+    zoomRaf = true;
+    requestAnimationFrame(()=>{ zoomRaf = false; applyZoomComp(); });
   }
   if(window.visualViewport){
-    window.visualViewport.addEventListener('resize', scheduleReposition);
-    window.visualViewport.addEventListener('scroll', scheduleReposition);
-    scheduleReposition();
+    window.visualViewport.addEventListener('resize', scheduleZoomComp);
+    window.visualViewport.addEventListener('scroll', scheduleZoomComp);
+    applyZoomComp();
   }
 
   minimizeBtn.addEventListener('click', ()=>{
