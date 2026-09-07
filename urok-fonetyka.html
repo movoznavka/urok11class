@@ -690,10 +690,11 @@ function renderSubSubs(){
 
 function renderContent(){
   const s = currentSection();
+  const secKey = sectionKey();
   let html = `<p class="section-title">${s.title}</p><p class="section-intro">${s.intro}</p>`;
   if(s.type === "cards"){
-    html += `<div class="cardgrid">${s.cards.map((c)=>`
-      <div class="flip" data-kind="card">        <div class="flip-inner">
+    html += `<div class="cardgrid">${s.cards.map((c,idx)=>`
+      <div class="flip" data-kind="card" data-card-key="${secKey}__card${idx}">        <div class="flip-inner">
           <div class="flip-face flip-front">
             <div class="flip-rule">${c.rule}</div>
             <div class="flip-desc">${c.desc||''}</div>
@@ -734,7 +735,13 @@ function renderContent(){
 
   lessonArea.innerHTML = html;
   lessonArea.querySelectorAll('[data-kind="card"], [data-kind="chip"], [data-kind="row"]').forEach(el=>{
-    const toggle = ()=>{ el.classList.toggle('open'); };
+    const toggle = ()=>{
+      el.classList.toggle('open');
+      // чорнило на картці прив'язане до конкретного боку (переднього чи
+      // заднього) — після перевертання просимо полотно перемалюватись, щоб
+      // показати лише те, що написано саме на видимому зараз боці
+      if(el.dataset.kind === 'card' && window.redrawInk) window.redrawInk();
+    };
     attachTapToggle(el, toggle);
   });
   syncCanvasAfterRender();
@@ -910,6 +917,17 @@ renderAll();
     };
   }
 
+  // якщо штрих був намальований на картці (є cardKey), він видимий лише
+  // тоді, коли ЗАРАЗ показано той самий бік картки, на якому його писали;
+  // штрихи поза картками (без cardKey) видимі завжди
+  function strokeVisible(s){
+    if(!s.cardKey) return true;
+    const el = document.querySelector('[data-card-key="' + s.cardKey + '"]');
+    if(!el) return true;
+    const face = el.classList.contains('open') ? 'back' : 'front';
+    return face === s.face;
+  }
+
   function drawStrokeFull(s){
     if(!s.points || !s.points.length) return;
     ctx.strokeStyle = s.color;
@@ -934,7 +952,7 @@ renderAll();
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
-    strokes.forEach(drawStrokeFull);
+    strokes.forEach(s=>{ if(strokeVisible(s)) drawStrokeFull(s); });
     // якщо ця функція раптом викликається ПОСЕРЕД мазка (напр. відкладений
     // resize, що таки спрацював одразу після підняття пера) — мазок, який
     // ще не потрапив у "strokes", теж домальовуємо, щоб він візуально не
@@ -955,6 +973,7 @@ renderAll();
     redrawAll();
   }
   window.resizeDrawCanvas = resizeCanvas;
+  window.redrawInk = redrawAll;
   resizeCanvas();
   // ВАЖЛИВО: якщо resize спрацює ПОКИ триває мазок пера (на iOS таке
   // трапляється, коли під час скролу ховається/зʼявляється панель адреси),
@@ -999,11 +1018,18 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    // поки малюємо — блокуємо однопальцеве смикання і подвійний тап (щоб
-    // випадковий дотик долонею не гортав сторінку), але двома пальцями
-    // масштабувати можна й далі — це окремий жест, який перу не заважає
-    document.documentElement.style.touchAction = on ? 'pinch-zoom' : 'auto';
-    document.body.style.touchAction = on ? 'pinch-zoom' : 'auto';
+    // поки малюємо — повністю блокуємо жести масштабування. Раніше тут
+    // стояло 'pinch-zoom' (дозволяв зум двома пальцями), але саме це,
+    // судячи з усього, і викликало ту "затримку в кілька секунд" між
+    // буквами: коли touch-action допускає можливість зумування, Safari
+    // деякий час чекає — а раптом це початок жесту двома пальцями? — перш
+    // ніж остаточно обробити дотик як звичайний. Це відчувається як
+    // "гальмує" саме між окремими дотиками пера. Малювання важливіше за
+    // можливість зумити, не вимикаючи інструмент, тож тепер: щоб
+    // збільшити сторінку — спершу вимкни малювання (кнопка-олівець),
+    // збільш, і увімкни знову.
+    document.documentElement.style.touchAction = on ? 'none' : 'auto';
+    document.body.style.touchAction = on ? 'none' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
     document.body.style.webkitUserSelect = on ? 'none' : '';
     document.documentElement.style.userSelect = on ? 'none' : '';
@@ -1137,7 +1163,7 @@ renderAll();
   function eraseAt(x, y){
     if(!strokes.length) return;
     for(let i=strokes.length-1; i>=0; i--){
-      if(strokeHit(strokes[i], x, y)){
+      if(strokeVisible(strokes[i]) && strokeHit(strokes[i], x, y)){
         strokes.splice(i,1);
         eraseChanged = true;
       }
@@ -1162,6 +1188,11 @@ renderAll();
       eraseAt(lastX, lastY);
     } else {
       currentStroke = { color: currentColor, points: [{x:lastX, y:lastY, w: currentWidth}] };
+      const cardEl = e.target && e.target.closest ? e.target.closest('.flip[data-card-key]') : null;
+      if(cardEl){
+        currentStroke.cardKey = cardEl.dataset.cardKey;
+        currentStroke.face = cardEl.classList.contains('open') ? 'back' : 'front';
+      }
     }
   }, {passive:false});
 
