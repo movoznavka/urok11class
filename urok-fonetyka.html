@@ -838,16 +838,22 @@ function renderQuiz(s){
 // першого renderAll(), щоб картки з першого ж рендеру одразу
 // використовували цю логіку, а не тимчасовий запасний onclick ----
 function attachTapToggle(el, handler){
-  let sx = 0, sy = 0, penTap = false, tracking = false;
+  let sx = 0, sy = 0, tracking = false;
   el.addEventListener('pointerdown', (e)=>{
     tracking = true;
     sx = e.clientX; sy = e.clientY;
-    penTap = e.pointerType === 'pen';
   }, {passive:true});
   el.addEventListener('pointerup', (e)=>{
     if(!tracking) return;
     tracking = false;
-    if(penTap && window.isDrawingActive && window.isDrawingActive()) return;
+    // поки увімкнено малювання — будь-який дотик по контенту (пальцем,
+    // стилусом, чим завгодно) призначений для малювання, а не для
+    // перемикання картки/вкладки. Раніше тут перевірявся саме
+    // e.pointerType === 'pen', але не кожен стилус браузер розпізнає як
+    // "pen" (частина недорогих стилусів видає себе за звичайний дотик
+    // пальцем) — через це малювання просто не вмикалось. Тепер це не
+    // залежить від типу пристрою взагалі.
+    if(window.isDrawingActive && window.isDrawingActive()) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if(Math.hypot(dx,dy) > 10) return;
     handler(e);
@@ -1003,8 +1009,19 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    document.documentElement.style.touchAction = on ? 'manipulation' : 'auto';
-    document.body.style.touchAction = on ? 'manipulation' : 'auto';
+    // ВАЖЛИВО: поки малювання увімкнено, повністю вимикаємо скрол і
+    // pinch-zoom пальцем ('none', а не 'manipulation'). Причина попередніх
+    // "зависань" між літерами була саме тут: 'manipulation' і далі
+    // дозволяв пальцю (наприклад долонею, поки пишеш пером) трохи
+    // проскролити чи зумнути сторінку. Той випадковий скрол ховав/показував
+    // адресний рядок Safari, це міняло висоту сторінки, і на секунду-дві
+    // збивало все малювання. З 'none' випадковий дотик пальцем просто
+    // нічого не робить — а звичайні короткі тапи по кнопках панелі
+    // (перемикач кольору/товщини/ластик) як і раніше спрацьовують, бо тапи
+    // не є жестом прокрутки. Щоб проскролити сторінку чи позумити її —
+    // спочатку вимкни малювання кнопкою-олівцем.
+    document.documentElement.style.touchAction = on ? 'none' : 'auto';
+    document.body.style.touchAction = on ? 'none' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
     document.body.style.webkitUserSelect = on ? 'none' : '';
     document.documentElement.style.userSelect = on ? 'none' : '';
@@ -1084,7 +1101,19 @@ renderAll();
   });
   clearBtn.addEventListener('click', ()=> window.clearDrawing());
 
-  function isPen(e){ return e.pointerType === 'pen'; }
+  // ВАЖЛИВО: раніше малювання вмикалось лише для e.pointerType === 'pen'.
+  // Але далеко не кожен стилус браузер визначає як справжній "pen" —
+  // багато простих/недорогих стилусів (і навіть деякі режими Apple Pencil
+  // у певних браузерах) насправді видають себе за звичайний дотик пальцем
+  // ("touch"). Через це малювання просто ніколи не запускалось, і замість
+  // нього спрацьовував звичайний жест прокрутки сторінки — це і виглядало
+  // як "не пише, тільки рухає екран". Тепер малювання реагує на БУДЬ-ЯКИЙ
+  // дотик (палець, стилус, мишу), поки увімкнено режим малювання. Єдине
+  // виключення — сама панель інструментів/кнопка-олівець: дотик по них не
+  // повинен починати штрих на полотні (нижче isOnControls).
+  function isOnControls(e){
+    return !!(e.target && e.target.closest && e.target.closest('#drawToolbar, #drawToolbarMini, #drawToggleBtn'));
+  }
 
   function dot(x, y, w){
     ctx.fillStyle = currentColor;
@@ -1132,7 +1161,7 @@ renderAll();
   }
 
   window.addEventListener('pointerdown', (e)=>{
-    if(!drawingActive || !isPen(e)) return;
+    if(!drawingActive || isOnControls(e)) return;
     e.preventDefault();
     isDrawing = true;
     strokeMoved = false;
@@ -1151,7 +1180,7 @@ renderAll();
   }, {passive:false});
 
   window.addEventListener('pointermove', (e)=>{
-    if(!drawingActive || !isDrawing || !isPen(e)) return;
+    if(!drawingActive || !isDrawing) return;
     e.preventDefault();
     const events = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length)
       ? e.getCoalescedEvents()
@@ -1169,7 +1198,7 @@ renderAll();
   }, {passive:false});
 
   function stopDrawing(e){
-    if(!isPen(e)) return;
+    if(!isDrawing) return;
     if(!eraserMode && currentStroke){
       if(!strokeMoved) dot(currentStroke.points[0].x, currentStroke.points[0].y, currentStroke.points[0].w);
       strokes.push(currentStroke);
