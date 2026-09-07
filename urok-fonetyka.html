@@ -1018,18 +1018,15 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    // поки малюємо — повністю блокуємо жести масштабування. Раніше тут
-    // стояло 'pinch-zoom' (дозволяв зум двома пальцями), але саме це,
-    // судячи з усього, і викликало ту "затримку в кілька секунд" між
-    // буквами: коли touch-action допускає можливість зумування, Safari
-    // деякий час чекає — а раптом це початок жесту двома пальцями? — перш
-    // ніж остаточно обробити дотик як звичайний. Це відчувається як
-    // "гальмує" саме між окремими дотиками пера. Малювання важливіше за
-    // можливість зумити, не вимикаючи інструмент, тож тепер: щоб
-    // збільшити сторінку — спершу вимкни малювання (кнопка-олівець),
-    // збільш, і увімкни знову.
-    document.documentElement.style.touchAction = on ? 'none' : 'auto';
-    document.body.style.touchAction = on ? 'none' : 'auto';
+    // поки малюємо — товч-екшен ставимо в 'manipulation'. Це не те саме,
+    // що 'none': 'manipulation' явно ДОЗВОЛЯЄ звичний зум двома пальцями
+    // й прокрутку, але при цьому вимикає розпізнавання "подвійного тапу"
+    // (Safari більше не чекає, а раптом це перша половина подвійного
+    // тапу для зуму) — а саме це очікування, судячи з усього, і було
+    // причиною затримки в кілька секунд між буквами. Отже: зум пальцями
+    // працює завжди, і малювання пером — без гальмування.
+    document.documentElement.style.touchAction = on ? 'manipulation' : 'auto';
+    document.body.style.touchAction = on ? 'manipulation' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
     document.body.style.webkitUserSelect = on ? 'none' : '';
     document.documentElement.style.userSelect = on ? 'none' : '';
@@ -1043,45 +1040,46 @@ renderAll();
   // Утримання кнопки-олівця й панелі кольорів у видимій області під час
   // pinch-zoom. Кнопка/панель — звичайний CSS position:fixed, а це на iOS
   // Safari прив'язується до НЕзумленого шару сторінки: коли зумиш вміст,
-  // фіксовані елементи можуть виїхати за межі того, що видно на екрані
-  // (класична поведінка Safari). Тому тут — ТІЛЬКИ позиція (без зміни
-  // розміру: спроба компенсувати сам масштаб через "zoom" минулого разу
-  // спричиняла глюки панелі через важкий backdrop-filter). Порахований
-  // зсув застосовується лише коли він реально змінився, і не частіше разу
-  // на кадр — це і усуває "зникання", і не смикає панель дарма.
+  // фіксовані елементи можуть виїхати за межі того, що видно на екрані.
+  // Рахуємо позицію НАПРЯМУ з visualViewport (offsetLeft/offsetTop/width/
+  // height) і РЕАЛЬНОГО розміру самого елемента — без жодних припущень про
+  // те, що window.innerWidth/innerHeight лишаються незмінними під час зуму
+  // (це припущення могло не справджуватись на реальному пристрої, хоч і
+  // виглядало правильним у тестах). ТІЛЬКИ позиція (left/top), transform не
+  // чіпаємо — він відповідає за центрування панелі й анімацію показу.
   // ======================================================================
   let lastVVKey = '';
   function repositionForZoom(){
     const vv = window.visualViewport;
     if(!vv) return;
-    const dx = Math.round(vv.offsetLeft + vv.width - window.innerWidth);
-    const dy = Math.round(vv.offsetTop + vv.height - window.innerHeight);
-    const key = dx + ',' + dy;
+    const margin = 20;
+
+    const btnRect = toggleBtn.getBoundingClientRect();
+    const btnLeft = Math.round(vv.offsetLeft + vv.width - margin - btnRect.width);
+    const btnTop = Math.round(vv.offsetTop + vv.height - margin - btnRect.height);
+
+    const centerX = Math.round(vv.offsetLeft + vv.width / 2);
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const toolbarTop = Math.round(vv.offsetTop + vv.height - 22 - toolbarRect.height);
+    const miniRect = toolbarMini.getBoundingClientRect();
+    const miniTop = Math.round(vv.offsetTop + vv.height - margin - miniRect.height);
+
+    const key = [btnLeft, btnTop, centerX, toolbarTop, miniTop].join(',');
     if(key === lastVVKey) return; // нічого не змінилось — не чіпаємо стилі дарма
     lastVVKey = key;
-    if(dx === 0 && dy === 0){
-      // не в режимі зуму (або зум щойно скинуто) — повертаємо звичайні
-      // значення з CSS, JS більше нічого не нав'язує
-      toggleBtn.style.right = '';
-      toggleBtn.style.bottom = '';
-      toolbar.style.left = '';
-      toolbar.style.bottom = '';
-      toolbarMini.style.left = '';
-      toolbarMini.style.bottom = '';
-    } else {
-      // ВАЖЛИВО: рухаємо ЛИШЕ right/bottom/left — жодного transform, бо
-      // transform на toolbar/toolbarMini відповідає за центрування
-      // (translateX(-50%)) і за саму анімацію показу/приховування; якщо
-      // замінити його тут, панель або зламає центрування, або "застрягне"
-      // видимою/прихованою. right/bottom/left можна міняти вільно — вони
-      // лише зсувають точку, відносно якої CSS далі малює transform.
-      toggleBtn.style.right = (20 - dx) + 'px';
-      toggleBtn.style.bottom = (20 - dy) + 'px';
-      toolbar.style.left = (vv.offsetLeft + vv.width/2) + 'px';
-      toolbar.style.bottom = (22 - dy) + 'px';
-      toolbarMini.style.left = (vv.offsetLeft + vv.width/2) + 'px';
-      toolbarMini.style.bottom = (20 - dy) + 'px';
-    }
+
+    toggleBtn.style.right = 'auto';
+    toggleBtn.style.bottom = 'auto';
+    toggleBtn.style.left = btnLeft + 'px';
+    toggleBtn.style.top = btnTop + 'px';
+
+    toolbar.style.bottom = 'auto';
+    toolbar.style.left = centerX + 'px';
+    toolbar.style.top = toolbarTop + 'px';
+
+    toolbarMini.style.bottom = 'auto';
+    toolbarMini.style.left = centerX + 'px';
+    toolbarMini.style.top = miniTop + 'px';
   }
   let vvRafScheduled = false;
   function scheduleReposition(){
@@ -1092,6 +1090,7 @@ renderAll();
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', scheduleReposition);
     window.visualViewport.addEventListener('scroll', scheduleReposition);
+    scheduleReposition();
   }
 
   minimizeBtn.addEventListener('click', ()=>{
