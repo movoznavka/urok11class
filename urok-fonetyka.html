@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Фонетика · Урок</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,6 +24,8 @@
     --correct-ink:#128A54;
     --wrong-bg:#FDECEC;
     --wrong-ink:#D8393E;
+
+    --zoom-comp: 1;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -36,7 +38,6 @@
     position:relative;
   }
   .wrap{max-width:760px;margin:0 auto;}
-  #zoomWrap{transform-origin:top center;}
 
   .topbar{
     display:flex;justify-content:space-between;align-items:center;
@@ -217,45 +218,6 @@
                              taps/clicks on real UI underneath always pass through */
   }
 
-  #zoomControls{
-    position:fixed;
-    left:20px;
-    bottom:20px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:2px;
-    background:
-      linear-gradient(150deg, rgba(255,255,255,0.6), rgba(255,255,255,0.15));
-    backdrop-filter: blur(14px) saturate(180%);
-    -webkit-backdrop-filter: blur(14px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.7);
-    border-radius:20px;
-    padding:6px;
-    box-shadow:
-      0 14px 28px -12px rgba(19,33,59,0.35),
-      inset 0 1px 1px rgba(255,255,255,0.9);
-    z-index:9999;
-  }
-  #zoomControls button{
-    width:38px;height:34px;
-    border:none;
-    border-radius:14px;
-    background:transparent;
-    color:var(--ink);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    font-family:'Manrope',sans-serif;
-    font-weight:800;
-    font-size:11px;
-    transition:background .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1);
-  }
-  #zoomControls button svg{width:16px;height:16px;}
-  #zoomControls button:active{transform:scale(0.9);background:rgba(19,33,59,0.08);}
-  #zoomResetBtn{color:var(--ink-soft) !important;}
-
   #drawToggleBtn{
     position:fixed;
     right:20px;
@@ -278,6 +240,8 @@
     justify-content:center;
     cursor:pointer;
     z-index:9999;
+    transform-origin: bottom right;
+    transform: scale(var(--zoom-comp));
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .2s ease, box-shadow .2s ease;
   }
   #drawToggleBtn svg{
@@ -285,7 +249,7 @@
     display:block;
     transition:transform .25s ease, opacity .15s ease;
   }
-  #drawToggleBtn:active{transform:scale(0.90);}
+  #drawToggleBtn:active{transform:scale(calc(0.90 * var(--zoom-comp)));}
   #drawToggleBtn.on{
     background:
       linear-gradient(150deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
@@ -301,7 +265,8 @@
     position:fixed;
     left:50%;
     bottom:22px;
-    transform:translateX(-50%) translateY(130%) scale(0.94);
+    transform:translateX(-50%) translateY(130%) scale(calc(0.94 * var(--zoom-comp)));
+    transform-origin: bottom center;
     opacity:0;
     display:flex;
     align-items:center;
@@ -321,13 +286,13 @@
     pointer-events:none;
   }
   #drawToolbar.show{
-    transform:translateX(-50%) translateY(0) scale(1);
+    transform:translateX(-50%) translateY(0) scale(var(--zoom-comp));
     opacity:1;
     pointer-events:auto;
   }
   /* панель згорнута, але малювання лишається увімкненим */
   #drawToolbar.mini{
-    transform:translateX(-50%) translateY(130%) scale(0.94);
+    transform:translateX(-50%) translateY(130%) scale(calc(0.94 * var(--zoom-comp)));
     opacity:0;
     pointer-events:none;
   }
@@ -335,7 +300,8 @@
     position:fixed;
     left:50%;
     bottom:20px;
-    transform:translateX(-50%) translateY(130%) scale(0.9);
+    transform:translateX(-50%) translateY(130%) scale(calc(0.9 * var(--zoom-comp)));
+    transform-origin: bottom center;
     opacity:0;
     width:40px;height:26px;
     border-radius:14px;
@@ -350,7 +316,7 @@
   }
   #drawToolbarMini svg{width:18px;height:18px;}
   #drawToolbarMini.show{
-    transform:translateX(-50%) translateY(0) scale(1);
+    transform:translateX(-50%) translateY(0) scale(var(--zoom-comp));
     opacity:1;
     pointer-events:auto;
   }
@@ -423,7 +389,6 @@
 </style>
 </head>
 <body>
-<div id="zoomWrap">
 <div class="wrap">
   <div class="topbar">
     <div class="kicker">Фонетика · Урок</div>
@@ -443,24 +408,6 @@
 
 <!-- ==== Малювання поверх екрана (для вчителя) ==== -->
 <canvas id="drawCanvas"></canvas>
-</div>
-
-<!-- ==== Власний зум (замінює системний pinch-zoom, з яким були постійні
-     конфлікти в Safari — кнопка/панель малювання "їхали" або роздувались
-     під час зуму двома пальцями). Масштабує лише вміст уроку (і чорнило
-     разом з ним, бо canvas — усередині того ж контейнера); кнопка
-     малювання й панель кольорів завжди лишаються звичайного розміру,
-     оскільки стоять ЗА МЕЖАМИ цього контейнера. ==== -->
-<div id="zoomControls">
-  <button id="zoomInBtn" title="Збільшити">
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-  </button>
-  <button id="zoomResetBtn" title="Скинути масштаб">100%</button>
-  <button id="zoomOutBtn" title="Зменшити">
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-  </button>
-</div>
-
 <button id="drawToggleBtn" title="Малювати">
   <svg id="drawIcon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 20L4.6 16.6C4.7 15.9 5.03 15.26 5.55 14.79L15.3 5.7C16.09 4.96 17.34 4.99 18.09 5.78L18.34 6.04C19.08 6.83 19.04 8.08 18.25 8.81L8.5 17.9C8 18.37 7.37 18.66 6.7 18.75L4 20Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/>
@@ -900,6 +847,9 @@ function attachTapToggle(el, handler){
   el.addEventListener('pointerup', (e)=>{
     if(!tracking) return;
     tracking = false;
+    // лише дотик СТИЛУСОМ (pen) під час малювання не перемикає картку/
+    // вкладку — палець завжди й далі просто тапає/гортає/зумить як
+    // звичайно, малювання його не займає.
     if(penTap && window.isDrawingActive && window.isDrawingActive()) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if(Math.hypot(dx,dy) > 10) return;
@@ -907,34 +857,6 @@ function attachTapToggle(el, handler){
   });
 }
 window.attachTapToggle = attachTapToggle;
-
-// ---- власний зум вмісту (замість системного pinch-zoom) ----
-(function(){
-  const zoomWrap = document.getElementById('zoomWrap');
-  const zoomInBtn = document.getElementById('zoomInBtn');
-  const zoomOutBtn = document.getElementById('zoomOutBtn');
-  const zoomResetBtn = document.getElementById('zoomResetBtn');
-  let level = 1;
-  const MIN = 0.7, MAX = 1.6, STEP = 0.1;
-  function apply(){
-    zoomWrap.style.zoom = level;
-    zoomResetBtn.textContent = Math.round(level*100) + '%';
-    // ВАЖЛИВО: canvas для малювання лежить УСЕРЕДИНІ zoomWrap і своєю
-    // внутрішньою роздільною здатністю (canvas.width/height) відповідає
-    // РЕАЛЬНОМУ (не зумленому) розміру сторінки — цього ми навмисно НЕ
-    // чіпаємо тут. CSS "zoom" сам масштабує весь contents контейнера як
-    // єдине зображення (так само як масштабував би <img>), тож уже
-    // намальоване чорнило автоматично лишається на своєму місці відносно
-    // тексту й карток довкола. Якби ми додатково викликали
-    // resizeDrawCanvas() при кожній зміні цього зуму, ми б натомість
-    // ПЕРЕмалювали полотно під нові розміри — і старі координати штрихів
-    // "поїхали" б відносно нового масштабу. Тому — лишаємо як є.
-  }
-  attachTapToggle(zoomInBtn, ()=>{ level = Math.min(MAX, +(level+STEP).toFixed(2)); apply(); });
-  attachTapToggle(zoomOutBtn, ()=>{ level = Math.max(MIN, +(level-STEP).toFixed(2)); apply(); });
-  attachTapToggle(zoomResetBtn, ()=>{ level = 1; apply(); });
-  window.resetContentZoom = ()=>{ if(level !== 1){ level = 1; apply(); } };
-})();
 
 function renderAll(){
   renderTopics();
@@ -947,24 +869,6 @@ renderAll();
 
 // ======================================================================
 // МАЛЮВАННЯ ПОВЕРХ ЕКРАНА (режим "учитель")
-//
-// Ця версія навмисно ПРОСТІША за попередню. Кожне попереднє "покращення"
-// (окреме чорнило на кожному боці картки, компенсація масштабу для кнопки
-// й панелі, гасіння кліку через таймер) додавало власний клас багів:
-// панель "губилася" при зумі, кнопка "тікала" не в той кут, картки й далі
-// перевертались, бо 300мс затримка кліку в Safari іноді довша за наш
-// таймер. Тому тут:
-//   • ОДНЕ спільне полотно на всю сторінку (в т.ч. поверх карток) —
-//     менше рухомих частин, менше місць для помилки;
-//   • перевертання картки більше НЕ залежить від того, чи встигне
-//     браузер сам згенерувати/скасувати клік — ми самі відстежуємо
-//     послідовність "дотик пальцем без зсуву" через pointerdown/pointerup
-//     і повністю ігноруємо перо, поки ввімкнено малювання;
-//   • кнопка й панель кольорів — звичайний CSS position:fixed, без жодного
-//     JS-перерахунку позиції під час зуму. Це означає, що під час
-//     збільшення вони поводяться як практично будь-який інший сайт (можуть
-//     трохи змінювати видиме положення разом зі сторінкою), але НІКОЛИ не
-//     зникають і не "тікають" — а це важливіше.
 // ======================================================================
 (function(){
   const canvas = document.getElementById('drawCanvas');
@@ -1040,10 +944,6 @@ renderAll();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
     strokes.forEach(s=>{ if(strokeVisible(s)) drawStrokeFull(s); });
-    // якщо ця функція раптом викликається ПОСЕРЕД мазка (напр. відкладений
-    // resize, що таки спрацював одразу після підняття пера) — мазок, який
-    // ще не потрапив у "strokes", теж домальовуємо, щоб він візуально не
-    // зникав ні за яких обставин
     if(currentStroke) drawStrokeFull(currentStroke);
   }
 
@@ -1062,24 +962,23 @@ renderAll();
   window.resizeDrawCanvas = resizeCanvas;
   window.redrawInk = redrawAll;
   resizeCanvas();
-  // ВАЖЛИВО: якщо resize спрацює ПОКИ триває мазок пера (на iOS таке
-  // трапляється, коли під час скролу ховається/зʼявляється панель адреси),
-  // відкладаємо саму зміну розміру до підняття пера (щоб не смикати полотно
-  // просто в процесі письма), але НЕ губимо подію — вона виконається одразу
-  // після stopDrawing(). redrawAll() вище й так намальовує поточний мазок,
-  // тож навіть якби ми не відкладали, лінія б не зникла — це подвійний
-  // захист.
+
+  // Якщо resize спрацює ПОКИ триває мазок пера — відкладаємо саму зміну
+  // розміру до підняття пера, а звичайні (не-зумові) resize-и додатково
+  // трохи "згладжуємо" в часі (debounce), щоб дрібні коливання висоти
+  // сторінки (напр. поява/зникнення адресного рядка Safari) не викликали
+  // купу підряд важких resizeCanvas()+redrawAll() одразу одне за одним.
   let resizePending = false;
+  let resizeDebounceTimer = null;
   function handleResize(){
-    // якщо вміст був збільшений нашим власним зумом — скидаємо його перед
-    // тим, як полотно перерахує свій розмір під нову геометрію сторінки;
-    // інакше вже намальоване чорнило (координати якого прив'язані до
-    // звичайного, незумленого макета) могло б розійтися з новим масштабом
-    if(window.resetContentZoom) window.resetContentZoom();
     if(isDrawing){ resizePending = true; return; }
     resizeCanvas();
   }
-  window.addEventListener('resize', handleResize);
+  function debouncedHandleResize(){
+    clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(handleResize, 120);
+  }
+  window.addEventListener('resize', debouncedHandleResize);
   window.addEventListener('orientationchange', ()=> setTimeout(handleResize, 200));
   window.addEventListener('load', resizeCanvas);
 
@@ -1088,9 +987,6 @@ renderAll();
     redrawAll();
   };
 
-  // сумісний з рештою сторінки API: збереження/відновлення чорнила поточної
-  // вкладки при переключенні між вкладками (викликається з зовнішнього
-  // скрипту через saveCurrentDrawing()/restoreCurrentDrawing())
   window.getDrawingSnapshot = function(){
     return JSON.stringify(strokes);
   };
@@ -1110,15 +1006,12 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    // Системний pinch-zoom вимкнено взагалі (див. <meta viewport> —
-    // maximum-scale=1, user-scalable=no), тож більше нема жесту, з яким
-    // touch-action мав би щось узгоджувати. 'none' — найпростіший і
-    // найнадійніший варіант: жодної затримки, жодної двозначності.
-    // Захотілось збільшити сторінку — для цього тепер є окремі кнопки
-    // зуму (зліва внизу), які масштабують тільки вміст уроку й ніяк не
-    // залежать від поведінки Safari під час pinch-zoom.
-    document.documentElement.style.touchAction = on ? 'none' : 'auto';
-    document.body.style.touchAction = on ? 'none' : 'auto';
+    // Пальцем і далі можна гортати сторінку й зумити двома пальцями навіть
+    // у режимі малювання ('manipulation' дозволяє pan/pinch-zoom, забирає
+    // лише затримку подвійного тапу) — малює виключно стилус, тож палець
+    // тут нічого не зіпсує.
+    document.documentElement.style.touchAction = on ? 'manipulation' : 'auto';
+    document.body.style.touchAction = on ? 'manipulation' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
     document.body.style.webkitUserSelect = on ? 'none' : '';
     document.documentElement.style.userSelect = on ? 'none' : '';
@@ -1127,6 +1020,40 @@ renderAll();
     if(on) resizeCanvas();
   }
   toggleBtn.addEventListener('click', ()=> setActive(!drawingActive));
+
+  // ======================================================================
+  // Стримуємо зростання кнопки й панелі під час pinch-zoom, НЕ чіпаючи їх
+  // позицію. Раніше тут на кожен тик зуму перечитувався
+  // getBoundingClientRect() і перезаписувались left/top — саме це смикало
+  // панель у випадкові місця на екрані (і навіть у середину сторінки) та
+  // зайво навантажувало браузер якраз тоді, коли треба було встигати
+  // малювати. Тепер:
+  //   • позиція кнопки й панелі і далі задається звичайним CSS
+  //     (position:fixed; bottom/right) — саме так браузер сам тримає їх
+  //     прив'язаними до видимої області під час зуму, без жодного JS;
+  //   • єдине, що робить JS — трохи стримує, наскільки сильно вони
+  //     візуально збільшуються, через CSS-змінну --zoom-comp. Це просте
+  //     число, жодних вимірювань розмірів і жодних left/top — тож нічого
+  //     ні "тікати", ні гальмувати малювання більше не може.
+  // ======================================================================
+  const MAX_VISUAL_GROWTH = 1.25; // дозволяємо трохи побільшати, але не в рази
+  function applyZoomComp(){
+    const vv = window.visualViewport;
+    const rawScale = (vv && vv.scale) ? vv.scale : 1;
+    const comp = rawScale <= 1 ? 1 : Math.min(1, MAX_VISUAL_GROWTH / rawScale);
+    document.documentElement.style.setProperty('--zoom-comp', comp);
+  }
+  let zoomRaf = false;
+  function scheduleZoomComp(){
+    if(zoomRaf) return;
+    zoomRaf = true;
+    requestAnimationFrame(()=>{ zoomRaf = false; applyZoomComp(); });
+  }
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', scheduleZoomComp);
+    window.visualViewport.addEventListener('scroll', scheduleZoomComp);
+    applyZoomComp();
+  }
 
   minimizeBtn.addEventListener('click', ()=>{
     toolbar.classList.remove('show');
@@ -1164,7 +1091,13 @@ renderAll();
   });
   clearBtn.addEventListener('click', ()=> window.clearDrawing());
 
+  // Малює лише СТИЛУС (pointerType === 'pen'). Палець ніколи не малює —
+  // ним і далі можна нормально тапати по кнопках, гортати й зумити двома
+  // пальцями, навіть коли режим малювання увімкнено.
   function isPen(e){ return e.pointerType === 'pen'; }
+  function isOnControls(e){
+    return !!(e.target && e.target.closest && e.target.closest('#drawToolbar, #drawToolbarMini, #drawToggleBtn'));
+  }
 
   function dot(x, y, w){
     ctx.fillStyle = currentColor;
@@ -1212,7 +1145,7 @@ renderAll();
   }
 
   window.addEventListener('pointerdown', (e)=>{
-    if(!drawingActive || !isPen(e)) return;
+    if(!drawingActive || !isPen(e) || isOnControls(e)) return;
     e.preventDefault();
     isDrawing = true;
     strokeMoved = false;
@@ -1249,7 +1182,7 @@ renderAll();
   }, {passive:false});
 
   function stopDrawing(e){
-    if(!isPen(e)) return;
+    if(!isDrawing) return;
     if(!eraserMode && currentStroke){
       if(!strokeMoved) dot(currentStroke.points[0].x, currentStroke.points[0].y, currentStroke.points[0].w);
       strokes.push(currentStroke);
