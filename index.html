@@ -228,7 +228,7 @@
   <div class="teacher-banner">Режим вчителя — учні цього не бачать</div>
 
   <h1>Усі <span class="hl">уроки</span></h1>
-  <p class="sub">Кожному учню — своє посилання з кодом (…/uroky.html?u=olya). Він бачить лише ті теми, які ви йому відкрили. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
+  <p class="sub">Кожному учню — своє посилання з кодом (…/index.html?u=Maryna). Він бачить лише ті теми, які ви йому відкрили. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
 
   <div id="blocks"></div>
 
@@ -422,19 +422,42 @@ blocksEl.innerHTML = BLOCKS.map(block => `
 // ============================================================
 // ХТО ЩО БАЧИТЬ
 // Код учня (те, що йде після ?u=) — обирайте самі, наприклад ім'я.
-// Посилання для учня: .../uroky.html?u=olya
+// Посилання для учня: .../index.html?u=Maryna
+//
+// ВАЖЛИВО: якщо учня немає в цьому списку — посилання НЕ спрацює,
+// портал покаже "Це посилання недійсне". Тому кожного нового учня
+// треба спершу дописати сюди рядком {"код": [...]}, і лише тоді
+// давати йому посилання з цим кодом.
+//
+// Код можна писати як завгодно (великі/малі літери, з пробілом чи
+// без) — головне, щоб код у посиланні (?u=...) збігався зі змістом,
+// а не обов'язково літера в літеру: система сама вирівнює регістр
+// і зайві пробіли між словом "u=" і кодом.
 // ============================================================
 const STUDENT_ACCESS = {
-  "Maruna+Svitlana":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html", "https://movoznavka.github.io/urok11class/urok-sproshchennya.html", "https://movoznavka.github.io/urok11class/urok-cherguvannya-sk.html"],
-  "ivan":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html"]
+  "olya":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html", "https://movoznavka.github.io/urok11class/urok-sproshchennya.html"],
+  "ivan":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html"],
+  "Maruna Svitlana": ["https://movoznavka.github.io/urok11class/urok-fonetyka.html"]
   // "код-учня": ["href-теми-1", "href-теми-2"]
 };
+
+// нормалізація коду: прибирає зайві пробіли з країв, кілька пробілів
+// підряд і різницю великих/малих літер — щоб "Maruna Svitlana",
+// "maruna svitlana" та "  Maruna   Svitlana " вважались однаковими
+function normalizeCode(s){
+  return (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+const NORMALIZED_ACCESS = {};
+Object.keys(STUDENT_ACCESS).forEach(function(code){
+  NORMALIZED_ACCESS[normalizeCode(code)] = STUDENT_ACCESS[code];
+});
 
 (function(){
   const params = new URLSearchParams(location.search);
   const isTeacher = params.get('vchytel') === '1';
-  const studentCode = params.get('u');
-  const allowed = studentCode ? STUDENT_ACCESS[studentCode] : null;
+  const studentCode = normalizeCode(params.get('u'));
+  const allowed = studentCode ? NORMALIZED_ACCESS[studentCode] : null;
 
   if (isTeacher) {
     document.body.classList.add('teacher-mode');
