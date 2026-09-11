@@ -228,7 +228,7 @@
   <div class="teacher-banner">Режим вчителя — учні цього не бачать</div>
 
   <h1>Усі <span class="hl">уроки</span></h1>
-  <p class="sub">Кожному учню — своє посилання з кодом (…/index.html?u=Maryna). Він бачить лише ті теми, які ви йому відкрили. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
+  <p class="sub" id="subDesc">Кожному учню — своє посилання з кодом (…/index.html?u=Maryna). Він бачить лише ті теми, які ви йому відкрили. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
 
   <div id="blocks"></div>
 
@@ -469,7 +469,8 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
       const badge = document.createElement('span');
       if (openFor.length) {
         badge.className = 'open-badge open';
-        badge.textContent = '🔓 ' + openFor.join(', ');
+        badge.textContent = '🔓 Відкрито · ' + openFor.length;
+        badge.title = openFor.join(', ');
       } else {
         badge.className = 'open-badge closed';
         badge.textContent = '🔒 нікому не відкрито';
@@ -480,6 +481,8 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
   }
 
   if (studentCode && allowed) {
+    const desc = document.getElementById('subDesc');
+    if (desc) desc.remove();
     document.querySelectorAll('.card').forEach(function(card){
       const key = card.getAttribute('data-key');
       if (allowed.indexOf(key) === -1) card.remove();
@@ -488,6 +491,8 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
       if (!b.querySelector('.card')) b.remove();
     });
   } else {
+    const desc = document.getElementById('subDesc');
+    if (desc) desc.remove();
     document.querySelectorAll('.block').forEach(function(b){ b.remove(); });
     const msg = document.createElement('p');
     msg.className = 'sub';
