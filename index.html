@@ -186,6 +186,36 @@
     color:var(--ink-soft);
     font-weight:500;
   }
+
+  .teacher-banner{
+    display:none;
+    background: var(--c2-b);
+    color:#fff;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:12.5px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    text-align:center;
+    padding:9px 14px;
+    border-radius:12px;
+    margin-bottom:20px;
+  }
+  body.teacher-mode .teacher-banner{ display:block; }
+
+  .open-badge{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:10.5px;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    padding:5px 10px;
+    border-radius:999px;
+    align-self:flex-start;
+    margin-top:-2px;
+  }
+  .open-badge.open{ background:var(--correct-bg); color:var(--correct-ink); }
+  .open-badge.closed{ background:rgba(229,72,77,0.12); color:var(--c2-b); }
 </style>
 </head>
 <body>
@@ -195,8 +225,10 @@
     <div class="kicker tag">для вчителя</div>
   </div>
 
+  <div class="teacher-banner">Режим вчителя — учні цього не бачать</div>
+
   <h1>Усі <span class="hl">уроки</span></h1>
-  <p class="sub">Ця сторінка — лише для вас. Відкрийте потрібну тему, щоб пояснювати матеріал і малювати прямо на екрані.</p>
+  <p class="sub">Кожному учню — своє посилання з кодом (…/uroky.html?u=olya). Він бачить лише ті теми, які ви йому відкрили. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
 
   <div id="blocks"></div>
 
@@ -256,8 +288,7 @@ const BLOCKS = [
       { title: "Складні слова", items: [
         {icon: "С", status: "ready", title: "Складні іменники", href: "https://movoznavka.github.io/urok11class/urok-skladni-imennyky.html"},
         {icon: "С", status: "ready", title: "Складні прикметники", href: "https://movoznavka.github.io/urok11class/urok-skladni-prykmetnyky.html"},
-        {icon: "С", status: "ready", title: "Складний прислівник", href: "https://movoznavka.github.io/urok11class/urok-skladni-prysliv.html"},
-        {icon: "З", status: "soon", title: "Загальний тест", href: "urok-skladni-zagalnyi.html"}
+        {icon: "С", status: "ready", title: "Складний прислівник", href: "https://movoznavka.github.io/urok11class/urok-skladni-prysliv.html"}
       ]}
     ]
   },
@@ -323,8 +354,7 @@ const BLOCKS = [
       ]},
       { title: "Члени речення", items: [
         {icon: "Ч", status: "soon", title: "Головні члени", href: "urok-chleny-holovni.html"},
-        {icon: "Ч", status: "soon", title: "Другорядні члени", href: "urok-chleny-druhoryadni.html"},
-        {icon: "З", status: "soon", title: "Загальний тест", href: "urok-chleny-zagalnyi.html"}
+        {icon: "Ч", status: "soon", title: "Другорядні члени", href: "urok-chleny-druhoryadni.html"}
       ]},
       { title: null, items: [
         {icon: "Т", status: "soon", title: "Тире між підметом і присудком", href: "urok-tyre-pidmet-prysudok.html"},
@@ -348,8 +378,7 @@ const BLOCKS = [
         {icon: "С", status: "soon", title: "Сурядні", href: "urok-skladne-suryadni.html"},
         {icon: "С", status: "soon", title: "Підрядні", href: "urok-skladne-pidryadni.html"},
         {icon: "С", status: "soon", title: "Безсполучникові", href: "urok-skladne-bezspoluchnykovi.html"},
-        {icon: "С", status: "soon", title: "З різними видами зв'язку", href: "urok-skladne-rizni-zvyazky.html"},
-        {icon: "З", status: "soon", title: "Загальний тест", href: "urok-skladne-zagalnyi.html"}
+        {icon: "С", status: "soon", title: "З різними видами зв'язку", href: "urok-skladne-rizni-zvyazky.html"}
       ]},
       { title: null, items: [
         {icon: "П", status: "ready", title: "Пряма мова", href: "https://movoznavka.github.io/urok11class/urok-pryama-mova.html"}
@@ -376,7 +405,7 @@ blocksEl.innerHTML = BLOCKS.map(block => `
         ${sg.title ? `<div class="subgroup-title">${sg.title}</div>` : ''}
         <div class="grid">
           ${sg.items.map(it => `
-            <a class="card ${it.status}" href="${it.status==='soon'?'#':it.href}">
+            <a class="card ${it.status}" href="${it.status==='soon'?'#':it.href}" data-key="${it.href}">
               <div class="card-top">
                 <span class="tile">${it.icon}</span>
                 <span class="status ${it.status}">${it.status==='soon'?'Скоро':'Готово'}</span>
@@ -389,6 +418,60 @@ blocksEl.innerHTML = BLOCKS.map(block => `
     `).join('')}
   </div>
 `).join('');
+
+// ============================================================
+// ХТО ЩО БАЧИТЬ
+// Код учня (те, що йде після ?u=) — обирайте самі, наприклад ім'я.
+// Посилання для учня: .../uroky.html?u=olya
+// ============================================================
+const STUDENT_ACCESS = {
+  "Maruna+Svitlana":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html", "https://movoznavka.github.io/urok11class/urok-sproshchennya.html", "https://movoznavka.github.io/urok11class/urok-cherguvannya-sk.html"],
+  "ivan":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html"]
+  // "код-учня": ["href-теми-1", "href-теми-2"]
+};
+
+(function(){
+  const params = new URLSearchParams(location.search);
+  const isTeacher = params.get('vchytel') === '1';
+  const studentCode = params.get('u');
+  const allowed = studentCode ? STUDENT_ACCESS[studentCode] : null;
+
+  if (isTeacher) {
+    document.body.classList.add('teacher-mode');
+    document.querySelectorAll('.card.ready').forEach(function(card){
+      const key = card.getAttribute('data-key');
+      const openFor = Object.keys(STUDENT_ACCESS).filter(function(code){
+        return STUDENT_ACCESS[code].indexOf(key) !== -1;
+      });
+      const badge = document.createElement('span');
+      if (openFor.length) {
+        badge.className = 'open-badge open';
+        badge.textContent = '🔓 ' + openFor.join(', ');
+      } else {
+        badge.className = 'open-badge closed';
+        badge.textContent = '🔒 нікому не відкрито';
+      }
+      card.appendChild(badge);
+    });
+    return;
+  }
+
+  if (studentCode && allowed) {
+    document.querySelectorAll('.card').forEach(function(card){
+      const key = card.getAttribute('data-key');
+      if (allowed.indexOf(key) === -1) card.remove();
+    });
+    document.querySelectorAll('.block').forEach(function(b){
+      if (!b.querySelector('.card')) b.remove();
+    });
+  } else {
+    document.querySelectorAll('.block').forEach(function(b){ b.remove(); });
+    const msg = document.createElement('p');
+    msg.className = 'sub';
+    msg.textContent = 'Це посилання недійсне. Зверніться до вчительки за новим.';
+    document.querySelector('.wrap').appendChild(msg);
+  }
+})();
 </script>
 </body>
 </html>
