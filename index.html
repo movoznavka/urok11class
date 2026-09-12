@@ -668,6 +668,9 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
       const key = wrap.querySelector('.card').getAttribute('data-key');
       if (allowed.indexOf(key) === -1) wrap.remove();
     });
+    document.querySelectorAll('.subgroup').forEach(function(sg){
+      if (!sg.querySelector('.card')) sg.remove();
+    });
     document.querySelectorAll('.block').forEach(function(b){
       if (!b.querySelector('.card')) b.remove();
     });
