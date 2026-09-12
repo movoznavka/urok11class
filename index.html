@@ -677,6 +677,18 @@ const STUDENT_ACCESS = {
   // "код-учня": ["href-теми-1", "href-теми-2"]
 };
 
+// ============================================================
+// ГРУПОВІ КОДИ (одне посилання — двоє учнів)
+// Якщо код є ключем тут — портал спершу спитає, хто саме зайшов,
+// і далі підставлятиме ОСОБИСТЕ ім'я і в лінки на уроки/тести,
+// і в результати в Telegram — щоб було видно, хто саме що зробив.
+// Одиночних учнів сюди додавати не треба.
+// ============================================================
+const GROUP_MEMBERS = {
+  "liza nastya": ["Liza", "Nastya"],
+  "maruna svitlana": ["Maruna", "Svitlana"]
+};
+
 function normalizeCode(s){
   return (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
@@ -685,6 +697,80 @@ const NORMALIZED_ACCESS = {};
 Object.keys(STUDENT_ACCESS).forEach(function(code){
   NORMALIZED_ACCESS[normalizeCode(code)] = STUDENT_ACCESS[code];
 });
+
+// ============================================================
+// ЗАВЕРШЕННЯ ВХОДУ УЧНЯ: ховає закриті теми, підвантажує ДЗ,
+// і — головне — дописує ?student=Ім'я в кожне посилання на урок,
+// щоб сторінка тесту брала ім'я з лінка й не питала його вручну.
+// ============================================================
+function appendStudentParam_(href, name){
+  const sep = href.indexOf('?') > -1 ? '&' : '?';
+  return href + sep + 'student=' + encodeURIComponent(name);
+}
+
+function finishStudentView_(studentCode, allowed, displayName){
+  loadHomework(studentCode);
+  const desc = document.getElementById('subDesc');
+  if (desc) desc.remove();
+
+  document.querySelectorAll('.card-wrap').forEach(function(wrap){
+    const card = wrap.querySelector('.card');
+    const key = card.getAttribute('data-key');
+    if (allowed.indexOf(key) === -1) { wrap.remove(); return; }
+    if (card.getAttribute('href') !== '#') {
+      card.setAttribute('href', appendStudentParam_(card.getAttribute('href'), displayName));
+    }
+  });
+  document.querySelectorAll('.subgroup').forEach(function(sg){
+    if (!sg.querySelector('.card')) sg.remove();
+  });
+  document.querySelectorAll('.block').forEach(function(b){
+    if (!b.querySelector('.card')) b.remove();
+  });
+
+  if (GROUP_MEMBERS[studentCode]) {
+    const who = document.createElement('p');
+    who.className = 'sub';
+    who.style.cssText = 'margin-top:28px;font-size:13px;';
+    who.innerHTML = 'Ви зайшли як <b>' + displayName + '</b>. <a href="#" id="switchWho" style="color:var(--c1-b);">Це не я</a>';
+    document.querySelector('.wrap').appendChild(who);
+    document.getElementById('switchWho').addEventListener('click', function(e){
+      e.preventDefault();
+      sessionStorage.removeItem('chosenName_' + studentCode);
+      location.reload();
+    });
+  }
+}
+
+function showNamePicker_(studentCode, allowed, members){
+  const blocksEl = document.getElementById('blocks');
+  blocksEl.style.display = 'none';
+  const desc = document.getElementById('subDesc');
+  if (desc) desc.remove();
+
+  const box = document.createElement('div');
+  box.id = 'namePicker';
+  box.innerHTML = '<p class="sub" style="margin-bottom:18px;">Це спільне посилання. Оберіть, хто зараз проходить тести:</p>';
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;';
+
+  members.forEach(function(name){
+    const btn = document.createElement('button');
+    btn.textContent = name;
+    btn.style.cssText = 'font-family:Manrope,sans-serif;font-weight:800;font-size:16px;padding:18px 30px;border:none;border-radius:16px;cursor:pointer;background:var(--card);color:var(--ink);box-shadow:0 14px 30px -24px rgba(19,33,59,0.35);';
+    btn.addEventListener('click', function(){
+      sessionStorage.setItem('chosenName_' + studentCode, name);
+      box.remove();
+      blocksEl.style.display = '';
+      finishStudentView_(studentCode, allowed, name);
+    });
+    row.appendChild(btn);
+  });
+
+  box.appendChild(row);
+  document.querySelector('.wrap').insertBefore(box, blocksEl);
+}
 
 (function(){
   const params = new URLSearchParams(location.search);
@@ -714,19 +800,18 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
   }
 
   if (studentCode && allowed) {
-    loadHomework(studentCode);
-    const desc = document.getElementById('subDesc');
-    if (desc) desc.remove();
-    document.querySelectorAll('.card-wrap').forEach(function(wrap){
-      const key = wrap.querySelector('.card').getAttribute('data-key');
-      if (allowed.indexOf(key) === -1) wrap.remove();
-    });
-    document.querySelectorAll('.subgroup').forEach(function(sg){
-      if (!sg.querySelector('.card')) sg.remove();
-    });
-    document.querySelectorAll('.block').forEach(function(b){
-      if (!b.querySelector('.card')) b.remove();
-    });
+    const members = GROUP_MEMBERS[studentCode];
+    if (members) {
+      const chosen = sessionStorage.getItem('chosenName_' + studentCode);
+      if (chosen && members.indexOf(chosen) !== -1) {
+        finishStudentView_(studentCode, allowed, chosen);
+      } else {
+        showNamePicker_(studentCode, allowed, members);
+      }
+    } else {
+      // одиночний учень — його ім'я і є кодом у посиланні
+      finishStudentView_(studentCode, allowed, params.get('u').trim());
+    }
   } else {
     const desc = document.getElementById('subDesc');
     if (desc) desc.remove();
