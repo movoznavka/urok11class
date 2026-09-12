@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Уроки · Навігація</title>
+<title>Уроки й тести · Навігація</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -107,6 +107,12 @@
     gap:14px;
   }
 
+  .card-wrap{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
   .card{
     background:var(--card);
     border-radius:22px;
@@ -179,6 +185,38 @@
     margin:0;
   }
 
+  /* --- плашка "тест до теми" --- */
+  .test-pill{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    text-decoration:none;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:12px;
+    letter-spacing:.01em;
+    padding:9px 14px;
+    border-radius:14px;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .test-pill.ready{
+    color:var(--c3-b);
+    background:var(--correct-bg);
+    cursor:pointer;
+  }
+  .test-pill.ready:hover{
+    transform:translateY(-2px);
+    box-shadow: 0 10px 20px -14px var(--c3-sh);
+  }
+  .test-pill.soon{
+    color:var(--ink-soft);
+    background:var(--bg-soft);
+    opacity:.6;
+    cursor:default;
+    pointer-events:none;
+  }
+
   footer{
     text-align:center;
     margin-top:36px;
@@ -227,8 +265,8 @@
 
   <div class="teacher-banner">Режим вчителя — учні цього не бачать</div>
 
-  <h1>Усі <span class="hl">уроки</span></h1>
-  <p class="sub" id="subDesc">Кожному учню — своє посилання з кодом (…/index.html?u=Maryna). Він бачить лише ті теми, які ви йому відкрили. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
+  <h1>Усі <span class="hl">теми</span></h1>
+  <p class="sub" id="subDesc">Кожному учню — своє посилання з кодом (…/index.html?u=Maryna). Він бачить лише ті теми, які ви йому відкрили — і урок, і тест до нього. Собі додайте в кінець ?vchytel=1 — побачите все і хто що має відкритим.</p>
 
   <div id="blocks"></div>
 
@@ -237,23 +275,28 @@
 
 <script>
 /* ============================================================
-   ЯК ДОДАТИ НОВИЙ УРОК ЧИ ТЕМУ
-   Весь список живе в масиві BLOCKS нижче — структура повторює
-   портал тренажерів: block (розділ, напр. "Морфологія") →
-   subgroups (підрозділи, напр. "Іменник"; title: null — якщо
-   підрозділ без назви) → items (самі картки).
+   ЯК ДОДАТИ НОВУ ТЕМУ
+   Структура: BLOCKS (розділ) → subgroups (підрозділ) → items (картка теми).
+   Кожен item — це один УРОК, і, за бажання, один ТЕСТ до нього:
 
-   Щоб додати картку — скопіюй один блок { ... } всередині items
-   і зміни icon / status / title / desc / href.
-   status: "ready" — картка активна, клікабельна, зелений бейдж "Готово"
-           "soon"  — картка неактивна, сірий бейдж "Скоро"
-   href повинен бути ПОВНИМ посиланням (https://...), бо портал —
-   окремий сайт і не знає, де саме лежить сам урок.
+   {
+     icon: "Ф",                 // літера на плитці
+     status: "ready"/"soon",    // готовність УРОКУ
+     title: "Назва теми",
+     desc: "необов'язковий підпис",
+     href: "https://.../urok-....html",   // посилання на урок (ПОВНЕ)
+     test: {                    // необов'язково — якщо тесту ще нема, просто не пишіть test
+       status: "ready"/"soon",
+       href: "https://movoznavka.github.io/ukr-testy/....html"
+     }
+   }
 
-   Щоб додати новий підрозділ — скопіюй { title: "...", items: [...] }
-   і встав у subgroups потрібного block.
-   Щоб додати новий розділ — скопіюй { name: "...", subgroups: [...] }
-   і встав його в масив BLOCKS.
+   Якщо готовий тільки тест, а уроку ще нема — став status уроку "soon"
+   (картка уроку стане сірою й неактивною), а test.status постав "ready" —
+   плашка тесту однаково буде клікабельною.
+
+   Щоб додати підрозділ — скопіюй { title: "...", items: [...] }.
+   Щоб додати розділ — скопіюй { name: "...", subgroups: [...] } у BLOCKS.
    ============================================================ */
 
 const BLOCKS = [
@@ -261,7 +304,9 @@ const BLOCKS = [
     name: "Фонетика",
     subgroups: [
       { title: null, items: [
-        {icon: "Ф", status: "ready", title: "Фонетика", desc: "Інтерактивний конспект із картками", href: "https://movoznavka.github.io/urok11class/urok-fonetyka.html"}
+        {icon: "Ф", status: "ready", title: "Фонетика", desc: "Інтерактивний конспект із картками",
+          href: "https://movoznavka.github.io/urok11class/urok-fonetyka.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/fonetyka.html"}}
       ]}
     ]
   },
@@ -269,26 +314,55 @@ const BLOCKS = [
     name: "Орфографія",
     subgroups: [
       { title: null, items: [
-        {icon: "С", status: "ready", title: "Спрощення в групах приголосних", href: "https://movoznavka.github.io/urok11class/urok-sproshchennya.html"},
-        {icon: "Ч", status: "ready", title: "Чергування суфіксів при додаванні -ськ-", href: "https://movoznavka.github.io/urok11class/urok-cherguvannya-sk.html"},
-        {icon: "Ч", status: "ready", title: "Чергування у-в та і-й", href: "https://movoznavka.github.io/urok11class/urok-cherguvannya-u-v.html"},
-        {icon: "М", status: "ready", title: "М'який знак", href: "https://movoznavka.github.io/urok11class/urok-myakyj-znak.html"},
-        {icon: "А", status: "ready", title: "Апостроф", href: "https://movoznavka.github.io/urok11class/urok-apostrof.html"},
-        {icon: "П", status: "ready", title: "Подвоєння букв", href: "https://movoznavka.github.io/urok11class/urok-podvoiennya.html"},
-        {icon: "П", status: "ready", title: "Правопис префіксів", href: "https://movoznavka.github.io/urok11class/urok-prefiksy.html"},
-        {icon: "В", status: "ready", title: "Велика буква й лапки у власних назвах", href: "https://movoznavka.github.io/urok11class/urok-velyka-bukva.html"},
-        {icon: "Н", status: "ready", title: "Правопис НЕ з різними частинами мови", desc: "Разом і окремо за частинами мови", href: "https://movoznavka.github.io/urok11class/urok-ne-z-chastynamy-movy.html"}
+        {icon: "С", status: "ready", title: "Спрощення в групах приголосних",
+          href: "https://movoznavka.github.io/urok11class/urok-sproshchennya.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/sproshchennya.html"}},
+        {icon: "Ч", status: "ready", title: "Чергування суфіксів при додаванні -ськ-",
+          href: "https://movoznavka.github.io/urok11class/urok-cherguvannya-sk.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/sufiksy-vsi.html"}},
+        {icon: "Ч", status: "ready", title: "Чергування у-в та і-й",
+          href: "https://movoznavka.github.io/urok11class/urok-cherguvannya-u-v.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/cherguvannya-u-v.html"}},
+        {icon: "М", status: "ready", title: "М'який знак",
+          href: "https://movoznavka.github.io/urok11class/urok-myakyj-znak.html",
+          test: {status: "soon", href: "myakyj-znak.html"}},
+        {icon: "А", status: "ready", title: "Апостроф",
+          href: "https://movoznavka.github.io/urok11class/urok-apostrof.html",
+          test: {status: "soon", href: "apostrof.html"}},
+        {icon: "П", status: "ready", title: "Подвоєння букв",
+          href: "https://movoznavka.github.io/urok11class/urok-podvoiennya.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/podvoiennya.html"}},
+        {icon: "П", status: "ready", title: "Правопис префіксів",
+          href: "https://movoznavka.github.io/urok11class/urok-prefiksy.html",
+          test: {status: "soon", href: "prefiksy.html"}},
+        {icon: "В", status: "ready", title: "Велика буква й лапки у власних назвах",
+          href: "https://movoznavka.github.io/urok11class/urok-velyka-bukva.html",
+          test: {status: "soon", href: "velyka-bukva.html"}},
+        {icon: "Н", status: "ready", title: "Правопис НЕ з різними частинами мови", desc: "Разом і окремо за частинами мови",
+          href: "https://movoznavka.github.io/urok11class/urok-ne-z-chastynamy-movy.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/ne-z-chastynamy-movy.html"}}
       ]},
       { title: "Написання іншомовних слів", items: [
-        {icon: "И", status: "soon", title: "Букви и, і", href: "urok-inshomovni-y-i.html"},
-        {icon: "П", status: "ready", title: "Подвоєні букви", href: "https://movoznavka.github.io/urok11class/urok-inshomovni-podvoiennya.html"},
-        {icon: "М", status: "soon", title: "М'який знак", href: "urok-inshomovni-myakyj-znak.html"},
-        {icon: "А", status: "soon", title: "Апостроф", href: "urok-inshomovni-apostrof.html"}
+        {icon: "И", status: "soon", title: "Букви и, і", href: "urok-inshomovni-y-i.html",
+          test: {status: "soon", href: "inshomovni-y-i.html"}},
+        {icon: "П", status: "ready", title: "Подвоєні букви",
+          href: "https://movoznavka.github.io/urok11class/urok-inshomovni-podvoiennya.html",
+          test: {status: "soon", href: "inshomovni-podvoiennya.html"}},
+        {icon: "М", status: "soon", title: "М'який знак", href: "urok-inshomovni-myakyj-znak.html",
+          test: {status: "soon", href: "inshomovni-myakyj-znak.html"}},
+        {icon: "А", status: "soon", title: "Апостроф", href: "urok-inshomovni-apostrof.html",
+          test: {status: "soon", href: "inshomovni-apostrof.html"}}
       ]},
       { title: "Складні слова", items: [
-        {icon: "С", status: "ready", title: "Складні іменники", href: "https://movoznavka.github.io/urok11class/urok-skladni-imennyky.html"},
-        {icon: "С", status: "ready", title: "Складні прикметники", href: "https://movoznavka.github.io/urok11class/urok-skladni-prykmetnyky.html"},
-        {icon: "С", status: "ready", title: "Складний прислівник", href: "https://movoznavka.github.io/urok11class/urok-skladni-prysliv.html"}
+        {icon: "С", status: "ready", title: "Складні іменники",
+          href: "https://movoznavka.github.io/urok11class/urok-skladni-imennyky.html",
+          test: {status: "soon", href: "skladni-imennyky.html"}},
+        {icon: "С", status: "ready", title: "Складні прикметники",
+          href: "https://movoznavka.github.io/urok11class/urok-skladni-prykmetnyky.html",
+          test: {status: "soon", href: "skladni-prykmetnyky.html"}},
+        {icon: "С", status: "ready", title: "Складний прислівник",
+          href: "https://movoznavka.github.io/urok11class/urok-skladni-prysliv.html",
+          test: {status: "soon", href: "skladni-prysliv.html"}}
       ]}
     ]
   },
@@ -296,8 +370,10 @@ const BLOCKS = [
     name: "Лексикологія",
     subgroups: [
       { title: null, items: [
-        {icon: "Л", status: "soon", title: "Лексичні помилки", href: "urok-leksychni-pomylky.html"},
-        {icon: "Ф", status: "soon", title: "Фразеологія", href: "urok-frazeologiya.html"}
+        {icon: "Л", status: "soon", title: "Лексичні помилки", href: "urok-leksychni-pomylky.html",
+          test: {status: "soon", href: "leksychni-pomylky.html"}},
+        {icon: "Ф", status: "soon", title: "Фразеологія", href: "urok-frazeologiya.html",
+          test: {status: "soon", href: "frazeologiya.html"}}
       ]}
     ]
   },
@@ -305,43 +381,73 @@ const BLOCKS = [
     name: "Морфологія",
     subgroups: [
       { title: "Іменник", items: [
-        {icon: "І", status: "ready", title: "Рід", href: "https://movoznavka.github.io/urok11class/urok-imennyk-rid.html"},
-        {icon: "І", status: "ready", title: "Число", href: "https://movoznavka.github.io/urok11class/urok-imennyk-chyslo.html"},
-        {icon: "І", status: "soon", title: "Групи", href: "urok-imennyk-hrupy.html"},
-        {icon: "І", status: "soon", title: "Відміни", href: "urok-imennyk-vidminy.html"},
-        {icon: "І", status: "soon", title: "Родовий відмінок", href: "urok-imennyk-rodovyi.html"},
-        {icon: "І", status: "soon", title: "Кличний відмінок", href: "urok-klychnyj-vidminok.html"},
-        {icon: "І", status: "soon", title: "Імена по батькові", href: "urok-imennyk-po-batkovi.html"}
+        {icon: "І", status: "ready", title: "Рід",
+          href: "https://movoznavka.github.io/urok11class/urok-imennyk-rid.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/rid_imennyka_trainer.html"}},
+        {icon: "І", status: "ready", title: "Число",
+          href: "https://movoznavka.github.io/urok11class/urok-imennyk-chyslo.html",
+          test: {status: "soon", href: "imennyk-chyslo.html"}},
+        {icon: "І", status: "soon", title: "Групи", href: "urok-imennyk-hrupy.html",
+          test: {status: "soon", href: "imennyk-hrupy.html"}},
+        {icon: "І", status: "soon", title: "Відміни", href: "urok-imennyk-vidminy.html",
+          test: {status: "soon", href: "imennyk-vidminy.html"}},
+        {icon: "І", status: "soon", title: "Родовий відмінок", href: "urok-imennyk-rodovyi.html",
+          test: {status: "soon", href: "imennyk-rodovyi.html"}},
+        {icon: "І", status: "soon", title: "Кличний відмінок", href: "urok-klychnyj-vidminok.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/klychnyj-vidminok.html"}},
+        {icon: "І", status: "soon", title: "Імена по батькові", href: "urok-imennyk-po-batkovi.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/imennyk-po-batkovi.html"}}
       ]},
       { title: "Прикметник", items: [
-        {icon: "П", status: "ready", title: "Ступені порівняння", href: "https://movoznavka.github.io/urok11class/urok-prykmetnyk-stupeni.html"},
-        {icon: "П", status: "ready", title: "Правопис прикметникових суфіксів", href: "https://movoznavka.github.io/urok11class/urok-prykmetnyk-sufiksy.html"}
+        {icon: "П", status: "ready", title: "Ступені порівняння",
+          href: "https://movoznavka.github.io/urok11class/urok-prykmetnyk-stupeni.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/prykmetnyk-stupeni.html"}},
+        {icon: "П", status: "ready", title: "Правопис прикметникових суфіксів",
+          href: "https://movoznavka.github.io/urok11class/urok-prykmetnyk-sufiksy.html",
+          test: {status: "soon", href: "prykmetnyk-sufiksy.html"}}
       ]},
       { title: "Числівник", items: [
-        {icon: "Ч", status: "ready", title: "Відмінювання числівників", href: "https://movoznavka.github.io/urok11class/urok-chyslivnyk-vidminy.html"},
-        {icon: "Ч", status: "ready", title: "Узгодження числівника з іменником", href: "https://movoznavka.github.io/urok11class/urok-chyslivnyk-uzgodzhennya.html"},
-        {icon: "Ч", status: "ready", title: "Позначення часу", href: "https://movoznavka.github.io/urok11class/urok-chyslivnyk-chas.html"}
+        {icon: "Ч", status: "ready", title: "Відмінювання числівників",
+          href: "https://movoznavka.github.io/urok11class/urok-chyslivnyk-vidminy.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/chyslivnyk-vidminy.html"}},
+        {icon: "Ч", status: "ready", title: "Узгодження числівника з іменником",
+          href: "https://movoznavka.github.io/urok11class/urok-chyslivnyk-uzgodzhennya.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/chyslivnyk-uzgodzhennya.html"}},
+        {icon: "Ч", status: "ready", title: "Позначення часу",
+          href: "https://movoznavka.github.io/urok11class/urok-chyslivnyk-chas.html",
+          test: {status: "soon", href: "chyslivnyk-chas.html"}}
       ]},
       { title: "Займенник", items: [
-        {icon: "З", status: "soon", title: "Займенник", href: "urok-zaimennyk.html"}
+        {icon: "З", status: "soon", title: "Займенник", href: "urok-zaimennyk.html",
+          test: {status: "soon", href: "zaimennyk.html"}}
       ]},
       { title: "Дієслово", items: [
-        {icon: "Д", status: "soon", title: "Форми дієслова", href: "urok-diyeslovo-formy.html"},
-        {icon: "Д", status: "soon", title: "Дієвідміни", href: "urok-diyeslovo-diyevidminy.html"},
-        {icon: "Д", status: "soon", title: "Способи", href: "urok-diyeslovo-sposoby.html"},
-        {icon: "Д", status: "soon", title: "Дієприкметник", href: "urok-diyeprykmetnyk.html"},
-        {icon: "Д", status: "soon", title: "Дієприслівник", href: "urok-diyeprysliv.html"}
+        {icon: "Д", status: "soon", title: "Форми дієслова", href: "urok-diyeslovo-formy.html",
+          test: {status: "soon", href: "diyeslovo-formy.html"}},
+        {icon: "Д", status: "soon", title: "Дієвідміни", href: "urok-diyeslovo-diyevidminy.html",
+          test: {status: "soon", href: "diyeslovo-diyevidminy.html"}},
+        {icon: "Д", status: "soon", title: "Способи", href: "urok-diyeslovo-sposoby.html",
+          test: {status: "soon", href: "diyeslovo-sposoby.html"}},
+        {icon: "Д", status: "soon", title: "Дієприкметник", href: "urok-diyeprykmetnyk.html",
+          test: {status: "soon", href: "diyeprykmetnyk.html"}},
+        {icon: "Д", status: "soon", title: "Дієприслівник", href: "urok-diyeprysliv.html",
+          test: {status: "soon", href: "diyeprysliv.html"}}
       ]},
       { title: "Прислівник", items: [
-        {icon: "П", status: "soon", title: "Прислівник", href: "urok-prysliv.html"}
+        {icon: "П", status: "soon", title: "Прислівник", href: "urok-prysliv.html",
+          test: {status: "soon", href: "prysliv.html"}}
       ]},
       { title: "Службові частини мови", items: [
-        {icon: "П", status: "soon", title: "Прийменник", href: "urok-pryimennyk.html"},
-        {icon: "С", status: "soon", title: "Сполучник", href: "urok-spoluchnyk.html"},
-        {icon: "Ч", status: "soon", title: "Частка", href: "urok-chastka.html"}
+        {icon: "П", status: "soon", title: "Прийменник", href: "urok-pryimennyk.html",
+          test: {status: "soon", href: "pryimennyk.html"}},
+        {icon: "С", status: "soon", title: "Сполучник", href: "urok-spoluchnyk.html",
+          test: {status: "soon", href: "spoluchnyk.html"}},
+        {icon: "Ч", status: "soon", title: "Частка", href: "urok-chastka.html",
+          test: {status: "soon", href: "chastka.html"}}
       ]},
       { title: "Вигук", items: [
-        {icon: "В", status: "soon", title: "Вигук", href: "urok-vyhuk.html"}
+        {icon: "В", status: "soon", title: "Вигук", href: "urok-vyhuk.html",
+          test: {status: "soon", href: "vyhuk.html"}}
       ]}
     ]
   },
@@ -349,39 +455,59 @@ const BLOCKS = [
     name: "Синтаксис і пунктуація",
     subgroups: [
       { title: null, items: [
-        {icon: "С", status: "soon", title: "Словосполучення", href: "urok-slovospoluchennya.html"},
-        {icon: "В", status: "soon", title: "Види речення", href: "urok-vydy-rechennya.html"}
+        {icon: "С", status: "soon", title: "Словосполучення", href: "urok-slovospoluchennya.html",
+          test: {status: "soon", href: "slovospoluchennya.html"}},
+        {icon: "В", status: "soon", title: "Види речення", href: "urok-vydy-rechennya.html",
+          test: {status: "soon", href: "vydy-rechennya.html"}}
       ]},
       { title: "Члени речення", items: [
-        {icon: "Ч", status: "soon", title: "Головні члени", href: "urok-chleny-holovni.html"},
-        {icon: "Ч", status: "soon", title: "Другорядні члени", href: "urok-chleny-druhoryadni.html"}
+        {icon: "Ч", status: "soon", title: "Головні члени", href: "urok-chleny-holovni.html",
+          test: {status: "soon", href: "chleny-holovni.html"}},
+        {icon: "Ч", status: "soon", title: "Другорядні члени", href: "urok-chleny-druhoryadni.html",
+          test: {status: "soon", href: "chleny-druhoryadni.html"}}
       ]},
       { title: null, items: [
-        {icon: "Т", status: "soon", title: "Тире між підметом і присудком", href: "urok-tyre-pidmet-prysudok.html"},
-        {icon: "Т", status: "soon", title: "Типи односкладних речень", href: "urok-odnoskladni.html"}
+        {icon: "Т", status: "soon", title: "Тире між підметом і присудком", href: "urok-tyre-pidmet-prysudok.html",
+          test: {status: "soon", href: "tyre-pidmet-prysudok.html"}},
+        {icon: "Т", status: "soon", title: "Типи односкладних речень", href: "urok-odnoskladni.html",
+          test: {status: "soon", href: "odnoskladni.html"}}
       ]},
       { title: "Однорідні члени речення", items: [
-        {icon: "О", status: "soon", title: "Однорідні члени", href: "urok-odnoridni.html"},
-        {icon: "О", status: "soon", title: "Однорідні й неоднорідні означення", href: "urok-odnoridni-neodnoridni.html"}
+        {icon: "О", status: "soon", title: "Однорідні члени", href: "urok-odnoridni.html",
+          test: {status: "soon", href: "odnoridni.html"}},
+        {icon: "О", status: "soon", title: "Однорідні й неоднорідні означення", href: "urok-odnoridni-neodnoridni.html",
+          test: {status: "soon", href: "odnoridni-neodnoridni.html"}}
       ]},
       { title: null, items: [
-        {icon: "В", status: "soon", title: "Вставні слова, словосполучення та речення", href: "urok-vstavni.html"},
-        {icon: "З", status: "soon", title: "Звертання", href: "urok-zvertannya.html"}
+        {icon: "В", status: "soon", title: "Вставні слова, словосполучення та речення", href: "urok-vstavni.html",
+          test: {status: "soon", href: "vstavni.html"}},
+        {icon: "З", status: "soon", title: "Звертання", href: "urok-zvertannya.html",
+          test: {status: "soon", href: "zvertannya.html"}}
       ]},
       { title: "Відокремлені другорядні члени речення", items: [
-        {icon: "В", status: "soon", title: "Означення", href: "urok-vidokremleni-oznachennya.html"},
-        {icon: "В", status: "soon", title: "Прикладка", href: "urok-vidokremleni-prykladka.html"},
-        {icon: "В", status: "soon", title: "Обставина", href: "urok-vidokremleni-obstavyna.html"},
-        {icon: "В", status: "soon", title: "Додаток", href: "urok-vidokremleni-dodatok.html"}
+        {icon: "В", status: "soon", title: "Означення", href: "urok-vidokremleni-oznachennya.html",
+          test: {status: "soon", href: "vidokremleni-oznachennya.html"}},
+        {icon: "В", status: "soon", title: "Прикладка", href: "urok-vidokremleni-prykladka.html",
+          test: {status: "soon", href: "vidokremleni-prykladka.html"}},
+        {icon: "В", status: "soon", title: "Обставина", href: "urok-vidokremleni-obstavyna.html",
+          test: {status: "soon", href: "vidokremleni-obstavyna.html"}},
+        {icon: "В", status: "soon", title: "Додаток", href: "urok-vidokremleni-dodatok.html",
+          test: {status: "soon", href: "vidokremleni-dodatok.html"}}
       ]},
       { title: "Складне речення", items: [
-        {icon: "С", status: "soon", title: "Сурядні", href: "urok-skladne-suryadni.html"},
-        {icon: "С", status: "soon", title: "Підрядні", href: "urok-skladne-pidryadni.html"},
-        {icon: "С", status: "soon", title: "Безсполучникові", href: "urok-skladne-bezspoluchnykovi.html"},
-        {icon: "С", status: "soon", title: "З різними видами зв'язку", href: "urok-skladne-rizni-zvyazky.html"}
+        {icon: "С", status: "soon", title: "Сурядні", href: "urok-skladne-suryadni.html",
+          test: {status: "soon", href: "skladne-suryadni.html"}},
+        {icon: "С", status: "soon", title: "Підрядні", href: "urok-skladne-pidryadni.html",
+          test: {status: "soon", href: "skladne-pidryadni.html"}},
+        {icon: "С", status: "soon", title: "Безсполучникові", href: "urok-skladne-bezspoluchnykovi.html",
+          test: {status: "soon", href: "skladne-bezspoluchnykovi.html"}},
+        {icon: "С", status: "soon", title: "З різними видами зв'язку", href: "urok-skladne-rizni-zvyazky.html",
+          test: {status: "soon", href: "skladne-rizni-zvyazky.html"}}
       ]},
       { title: null, items: [
-        {icon: "П", status: "ready", title: "Пряма мова", href: "https://movoznavka.github.io/urok11class/urok-pryama-mova.html"}
+        {icon: "П", status: "ready", title: "Пряма мова",
+          href: "https://movoznavka.github.io/urok11class/urok-pryama-mova.html",
+          test: {status: "ready", href: "https://movoznavka.github.io/ukr-testy/pryama-mova.html"}}
       ]}
     ]
   },
@@ -389,13 +515,21 @@ const BLOCKS = [
     name: "Тексти",
     subgroups: [
       { title: null, items: [
-        {icon: "Т", status: "soon", title: "Тексти", href: "urok-teksty.html"}
+        {icon: "Т", status: "soon", title: "Тексти", href: "urok-teksty.html",
+          test: {status: "soon", href: "teksty.html"}}
       ]}
     ]
   }
 ];
 
 const blocksEl = document.getElementById('blocks');
+
+function pillHtml(test){
+  if(!test) return '';
+  const clickable = test.status === 'ready';
+  const label = "🧪 Тест до теми";
+  return `<a class="test-pill ${test.status}" href="${clickable ? test.href : '#'}" data-testkey="${test.href}">${label}</a>`;
+}
 
 blocksEl.innerHTML = BLOCKS.map(block => `
   <div class="block">
@@ -405,14 +539,17 @@ blocksEl.innerHTML = BLOCKS.map(block => `
         ${sg.title ? `<div class="subgroup-title">${sg.title}</div>` : ''}
         <div class="grid">
           ${sg.items.map(it => `
-            <a class="card ${it.status}" href="${it.status==='soon'?'#':it.href}" data-key="${it.href}">
-              <div class="card-top">
-                <span class="tile">${it.icon}</span>
-                <span class="status ${it.status}">${it.status==='soon'?'Скоро':'Готово'}</span>
-              </div>
-              <p class="card-title">${it.title}</p>
-              ${it.desc?`<p class="card-sub">${it.desc}</p>`:''}
-            </a>`).join('')}
+            <div class="card-wrap">
+              <a class="card ${it.status}" href="${it.status==='soon'?'#':it.href}" data-key="${it.href}">
+                <div class="card-top">
+                  <span class="tile">${it.icon}</span>
+                  <span class="status ${it.status}">${it.status==='soon'?'Скоро':'Готово'}</span>
+                </div>
+                <p class="card-title">${it.title}</p>
+                ${it.desc?`<p class="card-sub">${it.desc}</p>`:''}
+              </a>
+              ${pillHtml(it.test)}
+            </div>`).join('')}
         </div>
       </div>
     `).join('')}
@@ -424,15 +561,11 @@ blocksEl.innerHTML = BLOCKS.map(block => `
 // Код учня (те, що йде після ?u=) — обирайте самі, наприклад ім'я.
 // Посилання для учня: .../index.html?u=Maryna
 //
-// ВАЖЛИВО: якщо учня немає в цьому списку — посилання НЕ спрацює,
-// портал покаже "Це посилання недійсне". Тому кожного нового учня
-// треба спершу дописати сюди рядком {"код": [...]}, і лише тоді
-// давати йому посилання з цим кодом.
+// Кожен код відкриває СПИСОК ТЕМ (масив href уроків, як і раніше) —
+// а урок і тест до нього показуються/ховаються РАЗОМ, як одна тема.
 //
-// Код можна писати як завгодно (великі/малі літери, з пробілом чи
-// без) — головне, щоб код у посиланні (?u=...) збігався зі змістом,
-// а не обов'язково літера в літеру: система сама вирівнює регістр
-// і зайві пробіли між словом "u=" і кодом.
+// ВАЖЛИВО: якщо учня немає в цьому списку — посилання НЕ спрацює,
+// портал покаже "Це посилання недійсне".
 // ============================================================
 const STUDENT_ACCESS = {
   "Liza Nastya":   ["https://movoznavka.github.io/urok11class/urok-fonetyka.html", "https://movoznavka.github.io/urok11class/urok-sproshchennya.html", "https://movoznavka.github.io/urok11class/urok-cherguvannya-u-v.html"],
@@ -441,9 +574,6 @@ const STUDENT_ACCESS = {
   // "код-учня": ["href-теми-1", "href-теми-2"]
 };
 
-// нормалізація коду: прибирає зайві пробіли з країв, кілька пробілів
-// підряд і різницю великих/малих літер — щоб "Maruna Svitlana",
-// "maruna svitlana" та "  Maruna   Svitlana " вважались однаковими
 function normalizeCode(s){
   return (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
@@ -461,7 +591,7 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
 
   if (isTeacher) {
     document.body.classList.add('teacher-mode');
-    document.querySelectorAll('.card.ready').forEach(function(card){
+    document.querySelectorAll('.card').forEach(function(card){
       const key = card.getAttribute('data-key');
       const openFor = Object.keys(STUDENT_ACCESS).filter(function(code){
         return STUDENT_ACCESS[code].indexOf(key) !== -1;
@@ -483,9 +613,9 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
   if (studentCode && allowed) {
     const desc = document.getElementById('subDesc');
     if (desc) desc.remove();
-    document.querySelectorAll('.card').forEach(function(card){
-      const key = card.getAttribute('data-key');
-      if (allowed.indexOf(key) === -1) card.remove();
+    document.querySelectorAll('.card-wrap').forEach(function(wrap){
+      const key = wrap.querySelector('.card').getAttribute('data-key');
+      if (allowed.indexOf(key) === -1) wrap.remove();
     });
     document.querySelectorAll('.block').forEach(function(b){
       if (!b.querySelector('.card')) b.remove();
