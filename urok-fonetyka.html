@@ -24,8 +24,6 @@
     --correct-ink:#128A54;
     --wrong-bg:#FDECEC;
     --wrong-ink:#D8393E;
-
-    --zoom-comp: 1;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -218,6 +216,23 @@
                              taps/clicks on real UI underneath always pass through */
   }
 
+  #drawDebug{
+    position:fixed;
+    top:8px;
+    left:8px;
+    z-index:10000;
+    background:rgba(19,33,59,0.82);
+    color:#fff;
+    font-family:'Manrope',monospace;
+    font-size:12px;
+    font-weight:700;
+    padding:5px 10px;
+    border-radius:10px;
+    pointer-events:none;
+    display:none;
+  }
+  #drawDebug.show{display:block;}
+
   #drawToggleBtn{
     position:fixed;
     right:20px;
@@ -240,8 +255,6 @@
     justify-content:center;
     cursor:pointer;
     z-index:9999;
-    transform-origin: bottom right;
-    transform: scale(var(--zoom-comp));
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .2s ease, box-shadow .2s ease;
   }
   #drawToggleBtn svg{
@@ -249,7 +262,7 @@
     display:block;
     transition:transform .25s ease, opacity .15s ease;
   }
-  #drawToggleBtn:active{transform:scale(calc(0.90 * var(--zoom-comp)));}
+  #drawToggleBtn:active{transform:scale(0.90);}
   #drawToggleBtn.on{
     background:
       linear-gradient(150deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
@@ -265,8 +278,7 @@
     position:fixed;
     left:50%;
     bottom:22px;
-    transform:translateX(-50%) translateY(130%) scale(calc(0.94 * var(--zoom-comp)));
-    transform-origin: bottom center;
+    transform:translateX(-50%) translateY(130%) scale(0.94);
     opacity:0;
     display:flex;
     align-items:center;
@@ -286,13 +298,13 @@
     pointer-events:none;
   }
   #drawToolbar.show{
-    transform:translateX(-50%) translateY(0) scale(var(--zoom-comp));
+    transform:translateX(-50%) translateY(0) scale(1);
     opacity:1;
     pointer-events:auto;
   }
   /* панель згорнута, але малювання лишається увімкненим */
   #drawToolbar.mini{
-    transform:translateX(-50%) translateY(130%) scale(calc(0.94 * var(--zoom-comp)));
+    transform:translateX(-50%) translateY(130%) scale(0.94);
     opacity:0;
     pointer-events:none;
   }
@@ -300,8 +312,7 @@
     position:fixed;
     left:50%;
     bottom:20px;
-    transform:translateX(-50%) translateY(130%) scale(calc(0.9 * var(--zoom-comp)));
-    transform-origin: bottom center;
+    transform:translateX(-50%) translateY(130%) scale(0.9);
     opacity:0;
     width:40px;height:26px;
     border-radius:14px;
@@ -316,7 +327,7 @@
   }
   #drawToolbarMini svg{width:18px;height:18px;}
   #drawToolbarMini.show{
-    transform:translateX(-50%) translateY(0) scale(var(--zoom-comp));
+    transform:translateX(-50%) translateY(0) scale(1);
     opacity:1;
     pointer-events:auto;
   }
@@ -408,6 +419,8 @@
 
 <!-- ==== Малювання поверх екрана (для вчителя) ==== -->
 <canvas id="drawCanvas"></canvas>
+<div id="drawDebug"></div>
+
 <button id="drawToggleBtn" title="Малювати">
   <svg id="drawIcon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 20L4.6 16.6C4.7 15.9 5.03 15.26 5.55 14.79L15.3 5.7C16.09 4.96 17.34 4.99 18.09 5.78L18.34 6.04C19.08 6.83 19.04 8.08 18.25 8.81L8.5 17.9C8 18.37 7.37 18.66 6.7 18.75L4 20Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/>
@@ -495,7 +508,7 @@ const TOPICS = {
         intro: "У ненаголошеній позиції деякі голосні вимовляються нечітко — з наближенням до сусіднього звука.",
         cards: [
           {rule: "Е наближається до И", desc: "у ненаголошеній позиції", examples: [{word: "весна", ipa: "[веи]сна"}]},
-          {rule: "И наближається до Е", desc: "у ненаголошеній позиції", examples: [{word: "диван", ipa: "[дие]ван"}]},
+          {rule: "И наближається до Е", desc: "у ненаголошеній позиції", examples: [{word: "диван", ipa: "[деи]ван"}]},
           {rule: "О наближається до У", desc: "перед складом з наголошеним у та і", examples: [{word: "зозуля", ipa: "з[оу]зуля"}]}
         ]
       }
@@ -542,7 +555,7 @@ const TOPICS = {
             intro: "Приголосні при вимові часто <b>уподібнюються</b> — підлаштовуються під сусідній звук. Тисни на картку, щоб побачити приклад.",
             mnemo: "<b>Глухі приголосні</b> (к, п, т, ф, х, ц, с, ч, ш): «у<b>С</b>е <b>Ц</b>е <b>К</b>а<b>Ф</b>е <b>П</b>та<b>Х</b> і <b>Ч</b>а<b>Ш</b>а».",
             cards: [
-              {rule: "Глухі → дзвінкі", desc: "т’, с’, к переходять у д’, з’, ґ’ перед дзвінким приголосним", examples: [{word: "молотьба", ipa: "моло[д’]ба", note: "від молотити"}, {word: "просьба", ipa: "про[з’]ба", note: "від просити"}]},
+              {rule: "Глухі → дзвінкі", desc: "т’, с’, к переходять у д’, з’, ґ’ перед дзвінким приголосним", examples: [{word: "молотьба", ipa: "моло[д’]ьба", note: "від молотити"}, {word: "просьба", ipa: "про[з’]ба", note: "від просити"}]},
               {rule: "Дзвінкі → глухі", desc: "з переходить у с перед глухим — але лише в префіксах", examples: [{word: "розпис", ipa: "ро[с]пис", note: "префікс роз-"}]},
               {rule: "Г → Х", desc: "г переходить у х перед глухим приголосним", examples: [{word: "кігті", ipa: "[к’іхт’і]"}, {word: "нігті", ipa: "[н’іхт’і]"}, {word: "легко", ipa: "[ле́хко]"}, {word: "вогко", ipa: "[во́хко]"}, {word: "дьогтю", ipa: "[д’о́хт’у]"}]},
               {rule: "Тверді → мʼякі", desc: "д, т, з, с, ц, л, н пом’якшуються перед мʼяким приголосним", examples: [{word: "пісня", ipa: "[п’іс’н’а]"}, {word: "кузня", ipa: "[куз’н’я]"}]},
@@ -847,9 +860,6 @@ function attachTapToggle(el, handler){
   el.addEventListener('pointerup', (e)=>{
     if(!tracking) return;
     tracking = false;
-    // лише дотик СТИЛУСОМ (pen) під час малювання не перемикає картку/
-    // вкладку — палець завжди й далі просто тапає/гортає/зумить як
-    // звичайно, малювання його не займає.
     if(penTap && window.isDrawingActive && window.isDrawingActive()) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if(Math.hypot(dx,dy) > 10) return;
@@ -869,6 +879,24 @@ renderAll();
 
 // ======================================================================
 // МАЛЮВАННЯ ПОВЕРХ ЕКРАНА (режим "учитель")
+//
+// Ця версія навмисно ПРОСТІША за попередню. Кожне попереднє "покращення"
+// (окреме чорнило на кожному боці картки, компенсація масштабу для кнопки
+// й панелі, гасіння кліку через таймер) додавало власний клас багів:
+// панель "губилася" при зумі, кнопка "тікала" не в той кут, картки й далі
+// перевертались, бо 300мс затримка кліку в Safari іноді довша за наш
+// таймер. Тому тут:
+//   • ОДНЕ спільне полотно на всю сторінку (в т.ч. поверх карток) —
+//     менше рухомих частин, менше місць для помилки;
+//   • перевертання картки більше НЕ залежить від того, чи встигне
+//     браузер сам згенерувати/скасувати клік — ми самі відстежуємо
+//     послідовність "дотик пальцем без зсуву" через pointerdown/pointerup
+//     і повністю ігноруємо перо, поки ввімкнено малювання;
+//   • кнопка й панель кольорів — звичайний CSS position:fixed, без жодного
+//     JS-перерахунку позиції під час зуму. Це означає, що під час
+//     збільшення вони поводяться як практично будь-який інший сайт (можуть
+//     трохи змінювати видиме положення разом зі сторінкою), але НІКОЛИ не
+//     зникають і не "тікають" — а це важливіше.
 // ======================================================================
 (function(){
   const canvas = document.getElementById('drawCanvas');
@@ -944,6 +972,10 @@ renderAll();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
     strokes.forEach(s=>{ if(strokeVisible(s)) drawStrokeFull(s); });
+    // якщо ця функція раптом викликається ПОСЕРЕД мазка (напр. відкладений
+    // resize, що таки спрацював одразу після підняття пера) — мазок, який
+    // ще не потрапив у "strokes", теж домальовуємо, щоб він візуально не
+    // зникав ні за яких обставин
     if(currentStroke) drawStrokeFull(currentStroke);
   }
 
@@ -962,23 +994,19 @@ renderAll();
   window.resizeDrawCanvas = resizeCanvas;
   window.redrawInk = redrawAll;
   resizeCanvas();
-
-  // Якщо resize спрацює ПОКИ триває мазок пера — відкладаємо саму зміну
-  // розміру до підняття пера, а звичайні (не-зумові) resize-и додатково
-  // трохи "згладжуємо" в часі (debounce), щоб дрібні коливання висоти
-  // сторінки (напр. поява/зникнення адресного рядка Safari) не викликали
-  // купу підряд важких resizeCanvas()+redrawAll() одразу одне за одним.
+  // ВАЖЛИВО: якщо resize спрацює ПОКИ триває мазок пера (на iOS таке
+  // трапляється, коли під час скролу ховається/зʼявляється панель адреси),
+  // відкладаємо саму зміну розміру до підняття пера (щоб не смикати полотно
+  // просто в процесі письма), але НЕ губимо подію — вона виконається одразу
+  // після stopDrawing(). redrawAll() вище й так намальовує поточний мазок,
+  // тож навіть якби ми не відкладали, лінія б не зникла — це подвійний
+  // захист.
   let resizePending = false;
-  let resizeDebounceTimer = null;
   function handleResize(){
     if(isDrawing){ resizePending = true; return; }
     resizeCanvas();
   }
-  function debouncedHandleResize(){
-    clearTimeout(resizeDebounceTimer);
-    resizeDebounceTimer = setTimeout(handleResize, 120);
-  }
-  window.addEventListener('resize', debouncedHandleResize);
+  window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', ()=> setTimeout(handleResize, 200));
   window.addEventListener('load', resizeCanvas);
 
@@ -987,6 +1015,9 @@ renderAll();
     redrawAll();
   };
 
+  // сумісний з рештою сторінки API: збереження/відновлення чорнила поточної
+  // вкладки при переключенні між вкладками (викликається з зовнішнього
+  // скрипту через saveCurrentDrawing()/restoreCurrentDrawing())
   window.getDrawingSnapshot = function(){
     return JSON.stringify(strokes);
   };
@@ -1006,18 +1037,15 @@ renderAll();
     toolbarMini.classList.remove('show');
     toggleBtn.classList.toggle('on', on);
     toggleBtn.title = on ? 'Вимкнути малювання' : 'Малювати';
-    // Тут довелось обирати між двома речами, які на iPad технічно
-    // конфліктують: миттєве, без затримок письмо стилусом і можливість
-    // зумити двома пальцями в ТОЙ САМИЙ момент. Поки браузеру дозволено
-    // розпізнавати pinch-zoom/скрол ('manipulation' чи 'auto'), він на
-    // кожен дотик — і пера теж — на мить "вагається": це малювання чи
-    // початок жесту зуму? Саме ця вагомість і відчувалась як "не пише"
-    // або "чекає пару секунд". Тому поки малювання УВІМКНЕНО, зум і скрол
-    // пальцем вимкнено ('none') — це прибирає будь-яку затримку між
-    // літерами. Щоб позумити сторінку — вимкни малювання кнопкою-олівцем,
-    // позум, і ввімкни малювання знову.
-    document.documentElement.style.touchAction = on ? 'none' : 'auto';
-    document.body.style.touchAction = on ? 'none' : 'auto';
+    debugEl.classList.toggle('show', on);
+    if(!on) debugEl.textContent = '';
+    lastLiftTime = null;
+    // Поки малюємо — блокуємо однопальцеве смикання й подвійний тап (щоб
+    // випадкова долоня не гортала сторінку), але двома пальцями масштабувати
+    // можна й далі — пера це не стосується, preventDefault() нижче й так
+    // гарантує, що сам дотик пером ніколи не піде на скрол/зум.
+    document.documentElement.style.touchAction = on ? 'pinch-zoom' : 'auto';
+    document.body.style.touchAction = on ? 'pinch-zoom' : 'auto';
     document.documentElement.style.webkitUserSelect = on ? 'none' : '';
     document.body.style.webkitUserSelect = on ? 'none' : '';
     document.documentElement.style.userSelect = on ? 'none' : '';
@@ -1028,37 +1056,70 @@ renderAll();
   toggleBtn.addEventListener('click', ()=> setActive(!drawingActive));
 
   // ======================================================================
-  // Стримуємо зростання кнопки й панелі під час pinch-zoom, НЕ чіпаючи їх
-  // позицію. Раніше тут на кожен тик зуму перечитувався
-  // getBoundingClientRect() і перезаписувались left/top — саме це смикало
-  // панель у випадкові місця на екрані (і навіть у середину сторінки) та
-  // зайво навантажувало браузер якраз тоді, коли треба було встигати
-  // малювати. Тепер:
-  //   • позиція кнопки й панелі і далі задається звичайним CSS
-  //     (position:fixed; bottom/right) — саме так браузер сам тримає їх
-  //     прив'язаними до видимої області під час зуму, без жодного JS;
-  //   • єдине, що робить JS — трохи стримує, наскільки сильно вони
-  //     візуально збільшуються, через CSS-змінну --zoom-comp. Це просте
-  //     число, жодних вимірювань розмірів і жодних left/top — тож нічого
-  //     ні "тікати", ні гальмувати малювання більше не може.
+  // Утримання кнопки-олівця й панелі кольорів у видимій області ПІД ЧАС
+  // pinch-zoom, і завжди звичайного розміру (а не роздутих разом зі
+  // сторінкою). Працює завжди, незалежно від того, чи ввімкнено малювання.
+  //
+  // Дві окремі речі:
+  //  1) ПОЗИЦІЯ (left/top) — рахуємо з visualViewport.offsetLeft/offsetTop/
+  //     width/height і РЕАЛЬНОГО розміру самого елемента, без жодних
+  //     припущень про window.innerWidth/innerHeight.
+  //  2) РОЗМІР — pinch-zoom в Safari масштабує взагалі все на сторінці,
+  //     включно з "fixed"-елементами, тож саму лише позицію без компенсації
+  //     розміру не досить: кнопка лишається на місці, але виглядає
+  //     роздутою. CSS-властивість "zoom" (не transform!) із коефіцієнтом
+  //     1/scale повертає їй нормальний видимий розмір, і, на відміну від
+  //     transform, ніяк не конфліктує з transform-анімацією показу/
+  //     приховування панелі кольорів.
   // ======================================================================
-  const MAX_VISUAL_GROWTH = 1.25; // дозволяємо трохи побільшати, але не в рази
-  function applyZoomComp(){
+  let lastVVKey = '';
+  function repositionForZoom(){
     const vv = window.visualViewport;
-    const rawScale = (vv && vv.scale) ? vv.scale : 1;
-    const comp = rawScale <= 1 ? 1 : Math.min(1, MAX_VISUAL_GROWTH / rawScale);
-    document.documentElement.style.setProperty('--zoom-comp', comp);
+    if(!vv) return;
+    const scale = vv.scale || 1;
+    const inv = 1 / scale;
+    const margin = 20;
+
+    const btnRect = toggleBtn.getBoundingClientRect();
+    const btnLeft = Math.round(vv.offsetLeft + vv.width - margin - btnRect.width);
+    const btnTop = Math.round(vv.offsetTop + vv.height - margin - btnRect.height);
+
+    const centerX = Math.round(vv.offsetLeft + vv.width / 2);
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const toolbarTop = Math.round(vv.offsetTop + vv.height - 22 - toolbarRect.height);
+    const miniRect = toolbarMini.getBoundingClientRect();
+    const miniTop = Math.round(vv.offsetTop + vv.height - margin - miniRect.height);
+
+    const key = [btnLeft, btnTop, centerX, toolbarTop, miniTop, scale.toFixed(3)].join(',');
+    if(key === lastVVKey) return; // нічого не змінилось — не чіпаємо стилі дарма
+    lastVVKey = key;
+
+    toggleBtn.style.right = 'auto';
+    toggleBtn.style.bottom = 'auto';
+    toggleBtn.style.left = btnLeft + 'px';
+    toggleBtn.style.top = btnTop + 'px';
+    toggleBtn.style.zoom = inv;
+
+    toolbar.style.bottom = 'auto';
+    toolbar.style.left = centerX + 'px';
+    toolbar.style.top = toolbarTop + 'px';
+    toolbar.style.zoom = inv;
+
+    toolbarMini.style.bottom = 'auto';
+    toolbarMini.style.left = centerX + 'px';
+    toolbarMini.style.top = miniTop + 'px';
+    toolbarMini.style.zoom = inv;
   }
-  let zoomRaf = false;
-  function scheduleZoomComp(){
-    if(zoomRaf) return;
-    zoomRaf = true;
-    requestAnimationFrame(()=>{ zoomRaf = false; applyZoomComp(); });
+  let vvRafScheduled = false;
+  function scheduleReposition(){
+    if(vvRafScheduled) return;
+    vvRafScheduled = true;
+    requestAnimationFrame(()=>{ vvRafScheduled = false; repositionForZoom(); });
   }
   if(window.visualViewport){
-    window.visualViewport.addEventListener('resize', scheduleZoomComp);
-    window.visualViewport.addEventListener('scroll', scheduleZoomComp);
-    applyZoomComp();
+    window.visualViewport.addEventListener('resize', scheduleReposition);
+    window.visualViewport.addEventListener('scroll', scheduleReposition);
+    scheduleReposition();
   }
 
   minimizeBtn.addEventListener('click', ()=>{
@@ -1097,13 +1158,7 @@ renderAll();
   });
   clearBtn.addEventListener('click', ()=> window.clearDrawing());
 
-  // Малює лише СТИЛУС (pointerType === 'pen'). Палець ніколи не малює —
-  // ним і далі можна нормально тапати по кнопках, гортати й зумити двома
-  // пальцями, навіть коли режим малювання увімкнено.
   function isPen(e){ return e.pointerType === 'pen'; }
-  function isOnControls(e){
-    return !!(e.target && e.target.closest && e.target.closest('#drawToolbar, #drawToolbarMini, #drawToggleBtn'));
-  }
 
   function dot(x, y, w){
     ctx.fillStyle = currentColor;
@@ -1150,9 +1205,22 @@ renderAll();
     }
   }
 
+  const debugEl = document.getElementById('drawDebug');
+  let lastLiftTime = null;
+
   window.addEventListener('pointerdown', (e)=>{
-    if(!drawingActive || !isPen(e) || isOnControls(e)) return;
+    if(!drawingActive || !isPen(e)) return;
     e.preventDefault();
+    // ДІАГНОСТИКА: скільки часу пройшло від моменту, коли перо підняли,
+    // до моменту, коли браузер доніс до нас ЦЕЙ pointerdown. Якщо число
+    // тут велике (сотні мс — секунди), затримка виникає ще ДО нашого
+    // коду, на рівні браузера/ОС, і виправити її з JS неможливо. Якщо
+    // число маленьке, а рука на екрані все одно "не реагує" помітно
+        // довше — проблема десь у нашому коді далі, і це вже можна шукати.
+    if(lastLiftTime !== null){
+      const gap = Math.round(performance.now() - lastLiftTime);
+      debugEl.textContent = 'затримка від підняття пера: ' + gap + ' мс';
+    }
     isDrawing = true;
     strokeMoved = false;
     lastX = e.pageX; lastY = e.pageY;
@@ -1188,13 +1256,14 @@ renderAll();
   }, {passive:false});
 
   function stopDrawing(e){
-    if(!isDrawing) return;
+    if(!isPen(e)) return;
     if(!eraserMode && currentStroke){
       if(!strokeMoved) dot(currentStroke.points[0].x, currentStroke.points[0].y, currentStroke.points[0].w);
       strokes.push(currentStroke);
     }
     currentStroke = null;
     isDrawing = false;
+    lastLiftTime = performance.now();
     if(resizePending){ resizePending = false; resizeCanvas(); }
   }
   window.addEventListener('pointerup', stopDrawing);
