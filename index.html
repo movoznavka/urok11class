@@ -67,14 +67,52 @@
   .block{
     margin-bottom:46px;
   }
+  .block-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+    margin:0 0 4px;
+    padding-bottom:12px;
+    border-bottom:2px solid rgba(19,33,59,0.14);
+  }
   .block-title{
     font-family:'Manrope',sans-serif;
     font-weight:800;
     font-size:24px;
     letter-spacing:-0.01em;
-    margin:0 0 4px;
-    padding-bottom:12px;
-    border-bottom:2px solid rgba(19,33,59,0.14);
+    margin:0;
+  }
+  .block-test-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    text-decoration:none;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:12.5px;
+    letter-spacing:.01em;
+    padding:9px 16px;
+    border-radius:999px;
+    white-space:nowrap;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .block-test-pill.ready{
+    color:var(--c3-b);
+    background:var(--correct-bg);
+    cursor:pointer;
+  }
+  .block-test-pill.ready:hover{
+    transform:translateY(-2px);
+    box-shadow: 0 10px 20px -14px var(--c3-sh);
+  }
+  .block-test-pill.soon{
+    color:var(--ink-soft);
+    background:var(--bg-soft);
+    opacity:.7;
+    cursor:default;
+    pointer-events:none;
   }
 
   .subgroup{ margin-bottom:26px; margin-top:24px; }
@@ -312,6 +350,7 @@ const BLOCKS = [
   },
   {
     name: "Орфографія",
+    generalTest: {status: "soon", href: "orfografiya-zagalnyi.html"},
     subgroups: [
       { title: null, items: [
         {icon: "С", status: "ready", title: "Спрощення в групах приголосних",
@@ -379,6 +418,7 @@ const BLOCKS = [
   },
   {
     name: "Морфологія",
+    generalTest: {status: "soon", href: "morfologiya-zagalnyi.html"},
     subgroups: [
       { title: "Іменник", items: [
         {icon: "І", status: "ready", title: "Рід",
@@ -453,6 +493,7 @@ const BLOCKS = [
   },
   {
     name: "Синтаксис і пунктуація",
+    generalTest: {status: "soon", href: "syntaksys-zagalnyi.html"},
     subgroups: [
       { title: null, items: [
         {icon: "С", status: "soon", title: "Словосполучення", href: "urok-slovospoluchennya.html",
@@ -531,9 +572,19 @@ function pillHtml(test){
   return `<a class="test-pill ${test.status}" href="${clickable ? test.href : '#'}" data-testkey="${test.href}">${label}</a>`;
 }
 
+function generalTestPillHtml(test){
+  if(!test) return '';
+  const clickable = test.status === 'ready';
+  const label = "📝 Загальний тест";
+  return `<a class="block-test-pill ${test.status}" href="${clickable ? test.href : '#'}" data-testkey="${test.href}">${label}</a>`;
+}
+
 blocksEl.innerHTML = BLOCKS.map(block => `
   <div class="block">
-    <h2 class="block-title">${block.name}</h2>
+    <div class="block-header">
+      <h2 class="block-title">${block.name}</h2>
+      ${generalTestPillHtml(block.generalTest)}
+    </div>
     ${block.subgroups.map(sg => `
       <div class="subgroup">
         ${sg.title ? `<div class="subgroup-title">${sg.title}</div>` : ''}
