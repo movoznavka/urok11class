@@ -255,6 +255,21 @@
     pointer-events:none;
   }
 
+  /* --- ДЗ: яскраве світіння --- */
+  .test-pill.homework, .block-test-pill.homework{
+    color:#7A3B00 !important;
+    background: linear-gradient(135deg, #FFE27A, #FF9A3D) !important;
+    animation: hwGlow 1.6s ease-in-out infinite;
+  }
+  @keyframes hwGlow{
+    0%,100%{ box-shadow: 0 0 6px 0 rgba(255,140,40,0.55); }
+    50%{ box-shadow: 0 0 18px 6px rgba(255,140,40,0.85); }
+  }
+  .hw-badge{
+    margin-left:6px;
+    font-weight:800;
+  }
+
   footer{
     text-align:center;
     margin-top:36px;
@@ -606,6 +621,36 @@ blocksEl.innerHTML = BLOCKS.map(block => `
     `).join('')}
   </div>
 `).join('');
+
+// ============================================================
+// ДЗ — ЯСКРАВЕ ПОЗНАЧЕННЯ
+// Тут вказуєте посилання вашого Apps Script (те саме, що для бота),
+// закінчується на /exec. Керуєте позначками ДЗ прямо в Telegram-боті
+// командою /дз — код нижче лише зчитує поточний стан і підсвічує пілюлі.
+// ============================================================
+const HOMEWORK_API_URL = "ВСТАВТЕ_СЮДИ_ПОСИЛАННЯ_НА_ВАШ_APPS_SCRIPT/exec";
+
+function applyHomework(map){
+  map = map || {};
+  document.querySelectorAll('[data-testkey]').forEach(function(el){
+    const hw = map[el.getAttribute('data-testkey')];
+    if(!hw) return;
+    el.classList.add('homework');
+    if(!el.querySelector('.hw-badge')){
+      const span = document.createElement('span');
+      span.className = 'hw-badge';
+      span.textContent = ' · ДЗ ' + hw.number;
+      el.appendChild(span);
+    }
+  });
+}
+
+(function loadHomework(){
+  if(!HOMEWORK_API_URL || HOMEWORK_API_URL.indexOf('ВСТАВТЕ') === 0) return;
+  const s = document.createElement('script');
+  s.src = HOMEWORK_API_URL + (HOMEWORK_API_URL.indexOf('?') > -1 ? '&' : '?') + 'callback=applyHomework';
+  document.body.appendChild(s);
+})();
 
 // ============================================================
 // ХТО ЩО БАЧИТЬ
