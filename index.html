@@ -623,10 +623,12 @@ blocksEl.innerHTML = BLOCKS.map(block => `
 `).join('');
 
 // ============================================================
-// ДЗ — ЯСКРАВЕ ПОЗНАЧЕННЯ
+// ДЗ — ЯСКРАВЕ ПОЗНАЧЕННЯ (ПЕРСОНАЛЬНО ДЛЯ КОЖНОГО УЧНЯ)
 // Тут вказуєте посилання вашого Apps Script (те саме, що для бота),
 // закінчується на /exec. Керуєте позначками ДЗ прямо в Telegram-боті
-// командою /дз — код нижче лише зчитує поточний стан і підсвічує пілюлі.
+// командою /дз (там спершу обираєте учня) — код нижче лише зчитує,
+// що призначено САМЕ ЦЬОМУ учню (за кодом ?u=...), і підсвічує пілюлі
+// тільки на його сторінці.
 // ============================================================
 const HOMEWORK_API_URL = "https://script.google.com/macros/s/AKfycbyDGcDVtwD0L8WW0zDIsXwYwwf6zp4XzmofzdI0wU-AhhfZIXbH2lOHquNSHI8cKRc7/exec";
 
@@ -645,12 +647,14 @@ function applyHomework(map){
   });
 }
 
-(function loadHomework(){
+function loadHomework(studentCode){
   if(!HOMEWORK_API_URL || HOMEWORK_API_URL.indexOf('ВСТАВТЕ') === 0) return;
+  if(!studentCode) return;
+  const sep = HOMEWORK_API_URL.indexOf('?') > -1 ? '&' : '?';
   const s = document.createElement('script');
-  s.src = HOMEWORK_API_URL + (HOMEWORK_API_URL.indexOf('?') > -1 ? '&' : '?') + 'callback=applyHomework';
+  s.src = HOMEWORK_API_URL + sep + 'callback=applyHomework&student=' + encodeURIComponent(studentCode);
   document.body.appendChild(s);
-})();
+}
 
 // ============================================================
 // ХТО ЩО БАЧИТЬ
@@ -710,6 +714,7 @@ Object.keys(STUDENT_ACCESS).forEach(function(code){
   }
 
   if (studentCode && allowed) {
+    loadHomework(studentCode);
     const desc = document.getElementById('subDesc');
     if (desc) desc.remove();
     document.querySelectorAll('.card-wrap').forEach(function(wrap){
