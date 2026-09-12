@@ -527,7 +527,7 @@ const blocksEl = document.getElementById('blocks');
 function pillHtml(test){
   if(!test) return '';
   const clickable = test.status === 'ready';
-  const label = "🧪 Тест до теми";
+  const label = "📝 Тест до теми";
   return `<a class="test-pill ${test.status}" href="${clickable ? test.href : '#'}" data-testkey="${test.href}">${label}</a>`;
 }
 
